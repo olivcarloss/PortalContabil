@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 import psycopg
@@ -34,6 +35,14 @@ from app.schemas.licensing import (
 )
 
 router = APIRouter(prefix="/licensing", tags=["licensing"])
+
+
+def _um_ano_apos(d: date) -> date:
+    try:
+        return d.replace(year=d.year + 1)
+    except ValueError:
+        # 29/fev sem ano bissexto correspondente
+        return d.replace(month=2, day=28, year=d.year + 1)
 
 
 # ============================================================
@@ -510,6 +519,8 @@ def create_licenca(payload: LicencaCreate, _: CurrentUser = Depends(get_current_
         data = payload.model_dump(exclude={"modulo_ids"})
         data["valor_unitario"] = valor
         data["valor_total"] = valor * data["qtd_licencas"]
+        if data["data_fim"] is None:
+            data["data_fim"] = _um_ano_apos(data["data_inicio"])
         cur.execute(
             """
             insert into licencas

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 
 const LICENSING_LINKS = [
@@ -27,7 +27,8 @@ export default function Shell() {
           flexDirection: "column",
         }}
       >
-        <div
+        <Link
+          to="/"
           style={{
             background: "white",
             borderRadius: "var(--radius-md)",
@@ -38,7 +39,7 @@ export default function Shell() {
           }}
         >
           <img src="/ia-cloude-logo.png" alt="IA-Cloude" style={{ width: "100%", height: "auto", display: "block" }} />
-        </div>
+        </Link>
         <nav style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
           {isAdmin && <SidebarLink to="/visao-geral" label="One Page de Produtos" />}
 

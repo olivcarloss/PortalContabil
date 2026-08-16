@@ -264,7 +264,7 @@ function AtivarModal({
         <Field label="Início da vigência">
           <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
         </Field>
-        <Field label="Fim da vigência" hint="Deixe em branco para vigência indeterminada.">
+        <Field label="Fim da vigência" hint="Deixe em branco para vigência automática de 1 ano a partir do início.">
           <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
         </Field>
       </FieldRow>

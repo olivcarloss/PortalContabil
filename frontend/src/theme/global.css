@@ -1,24 +1,21 @@
 :root {
-  /* Monochrome premium palette — same visual language as the RodriSaas
-     landing page (/rodrisaas). Variable names kept stable so no call
-     site needs to change, only the values. */
-  --color-primary: #0a0a0a;
-  --color-primary-dark: #000000;
-  --color-secondary: #52525b;
-  --color-accent: #0a0a0a;
-  --color-accent-light: #f4f4f5;
-  --color-bg: #fafafa;
+  --color-primary: #534AB7;
+  --color-primary-dark: #3f38a0;
+  --color-secondary: #7F77DD;
+  --color-accent: #EA580C;
+  --color-accent-light: #FFF4E6;
+  --color-bg: #f8f7f4;
   --color-surface: #ffffff;
-  --color-surface-alt: #f4f4f5;
-  --color-border: #e5e5e8;
-  --color-text: #0a0a0a;
-  --color-text-secondary: #27272a;
-  --color-text-muted: #6b6b74;
+  --color-surface-alt: #EEEDFE;
+  --color-border: #e5e1f5;
+  --color-text: #1f1b3a;
+  --color-text-secondary: #4a4560;
+  --color-text-muted: #6b7280;
   --color-success: #16a34a;
-  --color-success-light: #f0fdf4;
+  --color-success-light: #F0FDF4;
   --color-warning: #f59e0b;
   --color-warning-light: #fef3c7;
-  --color-danger: #dc2626;
+  --color-danger: #c0392b;
 
   /* Reserved for sparing accents only (hero glows, featured badges) —
      never used as a general UI color, keeping the interface monochrome. */
@@ -89,7 +86,7 @@ button {
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #171717, #000000);
+  background: var(--color-accent);
   color: white;
   box-shadow: var(--shadow-btn);
 }
