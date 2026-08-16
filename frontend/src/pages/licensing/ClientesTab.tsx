@@ -138,7 +138,7 @@ export default function ClientesTab() {
           </thead>
           <tbody>
             {clientes.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} className="row-clickable" onClick={() => openDetail(c.id)}>
                 <td style={{ fontWeight: 600 }}>{c.nome}</td>
                 <td>{c.email_contato ?? "—"}</td>
                 <td>{cnpjCountByCliente[c.id] ?? "…"}</td>
@@ -154,11 +154,8 @@ export default function ClientesTab() {
                     {c.ativo ? "Ativo" : "Inativo"}
                   </span>
                 </td>
-                <td>
+                <td onClick={(e) => e.stopPropagation()}>
                   <div className="row-actions">
-                    <button className="btn btn-secondary" onClick={() => openDetail(c.id)}>
-                      Ver detalhes
-                    </button>
                     <button className="icon-btn" title="Editar" onClick={() => setEditingCliente(c)}>
                       ✎
                     </button>

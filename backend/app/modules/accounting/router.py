@@ -19,9 +19,13 @@ def meus_modulos(user: CurrentUser = Depends(get_current_user)):
 
 @router.get("/meus-produtos", response_model=list[MeuProdutoLicenciado])
 def meus_produtos(user: CurrentUser = Depends(get_current_user)):
-    """Todos os produtos com licenca vinculada ao usuario logado, com o(s)
-    CNPJ(s) a que cada licenca se aplica — um CNPJ diretamente (produto
-    'por_cnpj') ou todos os CNPJs ativos do escritorio (produto 'por_cliente')."""
+    """Todos os produtos licenciados para o escritorio (cliente) do usuario
+    logado, com o(s) CNPJ(s) a que cada licenca se aplica — um CNPJ
+    diretamente (produto 'por_cnpj') ou todos os CNPJs ativos do escritorio
+    (produto 'por_cliente'). Baseado no escritorio do usuario, e nao apenas
+    nas licencas explicitamente vinculadas a ele via usuario_licencas —
+    senao produtos ativados por um admin, mas ainda nao concedidos a este
+    usuario especificamente, ficariam fora da visao geral do portal."""
     with get_conn() as conn:
         renovar_licencas_vencidas(conn)
         with conn.cursor() as cur:
@@ -33,14 +37,14 @@ def meus_produtos(user: CurrentUser = Depends(get_current_user)):
                     p.categoria,
                     l.status, l.periodicidade, l.data_inicio, l.data_fim, l.valor_total,
                     c.id as cnpj_id, c.cnpj, c.razao_social, c.nome_fantasia
-                from usuario_licencas ul
-                join licencas l on l.id = ul.licenca_id
+                from usuarios_portal up
+                join licencas l on l.cliente_id = up.cliente_id
                 join produtos p on p.id = l.produto_id
                 left join cnpjs c on (
                     (p.escopo_licenca = 'por_cnpj' and c.id = l.cnpj_id)
                     or (p.escopo_licenca = 'por_cliente' and c.cliente_id = l.cliente_id and c.ativo)
                 )
-                where ul.usuario_id = %s
+                where up.id = %s
                 order by p.nome, c.razao_social;
                 """,
                 (user.id,),

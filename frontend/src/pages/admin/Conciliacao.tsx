@@ -201,7 +201,7 @@ export default function Conciliacao() {
             </thead>
             <tbody>
               {conciliacoes.map((c) => (
-                <tr key={c.conciliacao_id}>
+                <tr key={c.conciliacao_id} className="row-clickable" onClick={() => openAnalitico(c)}>
                   <td>{c.cliente_nome}</td>
                   <td className="mono">{c.cnpj}</td>
                   <td>{MESES[c.mes]}/{c.ano}</td>
@@ -212,7 +212,7 @@ export default function Conciliacao() {
                   <td>{currency(c.total_creditos)}</td>
                   <td style={{ fontWeight: 600 }}>{currency(c.saldo_final)}</td>
                   <td>{c.qtd_lancamentos}</td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <button className="btn btn-secondary" onClick={() => openAnalitico(c)}>
                       Ver analítico
                     </button>

@@ -303,7 +303,11 @@ export default function AccountingHome() {
             </thead>
             <tbody>
               {conciliacoesFiltradas.map((c) => (
-                <tr key={c.conciliacao_id}>
+                <tr
+                  key={c.conciliacao_id}
+                  className={temAnalitico ? "row-clickable" : ""}
+                  onClick={temAnalitico ? () => openConciliacao(c) : undefined}
+                >
                   <td>{c.cnpj}</td>
                   <td>{c.razao_social}</td>
                   <td>
@@ -317,7 +321,7 @@ export default function AccountingHome() {
                     })}
                   </td>
                   {temAnalitico && (
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <button className="btn btn-secondary" onClick={() => openConciliacao(c)}>
                         Ver lançamentos
                       </button>

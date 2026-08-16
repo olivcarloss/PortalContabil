@@ -156,6 +156,15 @@ th {
   letter-spacing: 0.06em;
 }
 
+tbody tr.row-clickable {
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+tbody tr.row-clickable:hover {
+  background: var(--color-surface-alt);
+}
+
 .badge {
   display: inline-block;
   padding: 0.15rem 0.6rem;
