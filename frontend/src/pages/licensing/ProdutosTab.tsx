@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Modal, { Field, FieldRow } from "../../components/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Modulo, Produto } from "../../api/types";
@@ -115,6 +116,11 @@ export default function ProdutosTab() {
                 >
                   Valor dos módulos
                 </button>
+                {p.codigo === "CONCILIACAO_CONTABIL" && (
+                  <Link to="/conciliacao" className="btn btn-secondary">
+                    Ver sintético/analítico
+                  </Link>
+                )}
               </div>
             </div>
             {expandedId === p.id && (
