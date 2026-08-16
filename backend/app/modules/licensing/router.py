@@ -342,7 +342,15 @@ def create_licenca(payload: LicencaCreate, _: CurrentUser = Depends(get_current_
                 detail="Este produto e licenciado por cliente (cnpj_id deve ser nulo)",
             )
 
+        cur.execute(
+            "select coalesce(sum(valor_execucao), 0) as total from modulos where id = any(%s::uuid[]);",
+            ([str(m) for m in payload.modulo_ids],),
+        )
+        valor = float(cur.fetchone()["total"])
+
         data = payload.model_dump(exclude={"modulo_ids"})
+        data["valor_unitario"] = valor
+        data["valor_total"] = valor * data["qtd_licencas"]
         cur.execute(
             """
             insert into licencas
@@ -374,13 +382,35 @@ def update_licenca(
     licenca_id: UUID, payload: LicencaUpdate, _: CurrentUser = Depends(get_current_user)
 ):
     fields = payload.model_dump(exclude_unset=True)
-    if not fields:
+    modulo_ids = fields.pop("modulo_ids", None)
+    if not fields and modulo_ids is None:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
 
-    set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
-    fields["id"] = str(licenca_id)
-
     with get_conn() as conn, conn.cursor() as cur:
+        if modulo_ids is not None:
+            cur.execute("select qtd_licencas from licencas where id = %s;", (licenca_id,))
+            existing = cur.fetchone()
+            if existing is None:
+                raise HTTPException(status_code=404, detail="Licenca nao encontrada")
+
+            cur.execute("delete from licenca_modulos where licenca_id = %s;", (licenca_id,))
+            for modulo_id in modulo_ids:
+                cur.execute(
+                    "insert into licenca_modulos (licenca_id, modulo_id) values (%s, %s) "
+                    "on conflict do nothing;",
+                    (licenca_id, str(modulo_id)),
+                )
+            cur.execute(
+                "select coalesce(sum(valor_execucao), 0) as total from modulos where id = any(%s::uuid[]);",
+                ([str(m) for m in modulo_ids],),
+            )
+            valor = float(cur.fetchone()["total"])
+            qtd = fields.get("qtd_licencas", existing["qtd_licencas"])
+            fields["valor_unitario"] = valor
+            fields["valor_total"] = valor * qtd
+
+        set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
+        fields["id"] = str(licenca_id)
         cur.execute(
             f"update licencas set {set_clause} where id = %(id)s "
             "returning *, (select coalesce(array_agg(modulo_id), '{}') from licenca_modulos where licenca_id = %(id)s) as modulo_ids;",

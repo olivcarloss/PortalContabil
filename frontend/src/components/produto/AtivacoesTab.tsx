@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../Modal";
 import { licensingApi } from "../../api/licensing";
-import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
+import type { Cliente, Cnpj, Licenca, Modulo, Produto } from "../../api/types";
 
 const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -145,30 +145,44 @@ function AtivarModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [valor, setValor] = useState("0");
+  const [modulos, setModulos] = useState<Modulo[]>([]);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
   const [periodicidade, setPeriodicidade] = useState<"mensal" | "anual">("mensal");
   const [dataInicio, setDataInicio] = useState(new Date().toISOString().slice(0, 10));
   const [dataFim, setDataFim] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    licensingApi.listModulos(produto.id).then(setModulos).catch((e) => setError(e.message));
+  }, [produto.id]);
+
+  const valorCalculado = modulos
+    .filter((m) => selecionados.includes(m.id))
+    .reduce((sum, m) => sum + m.valor_execucao, 0);
+
+  function toggleModulo(moduloId: string) {
+    setSelecionados((prev) =>
+      prev.includes(moduloId) ? prev.filter((id) => id !== moduloId) : [...prev, moduloId]
+    );
+  }
+
   async function handleSave() {
     setSaving(true);
     setError(null);
     try {
-      const valorNum = parseFloat(valor) || 0;
       await licensingApi.createLicenca({
         cliente_id: cliente.id,
         produto_id: produto.id,
         cnpj_id: cnpj?.id ?? null,
         qtd_licencas: 1,
-        valor_unitario: valorNum,
-        valor_total: valorNum,
+        valor_unitario: valorCalculado,
+        valor_total: valorCalculado,
         periodicidade,
         data_inicio: dataInicio,
         data_fim: dataFim || null,
         status: "ativa",
-        modulo_ids: [],
+        modulo_ids: selecionados,
       });
       onCreated();
     } catch (e) {
@@ -197,9 +211,29 @@ function AtivarModal({
         {cliente.nome}
         {cnpj ? ` · CNPJ ${cnpj.cnpj}` : ""}
       </p>
+      {modulos.length > 0 && (
+        <Field label="Módulos habilitados" hint="O valor é calculado automaticamente pela soma dos módulos marcados.">
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.8rem" }}>
+            {modulos.map((m) => (
+              <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem" }}>
+                <input
+                  type="checkbox"
+                  style={{ width: "auto" }}
+                  checked={selecionados.includes(m.id)}
+                  onChange={() => toggleModulo(m.id)}
+                />
+                {m.nome}
+              </label>
+            ))}
+          </div>
+        </Field>
+      )}
       <FieldRow>
-        <Field label="Valor">
-          <input type="number" min="0" step="0.01" value={valor} onChange={(e) => setValor(e.target.value)} />
+        <Field label="Valor calculado">
+          <input
+            value={valorCalculado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            disabled
+          />
         </Field>
         <Field label="Periodicidade">
           <select value={periodicidade} onChange={(e) => setPeriodicidade(e.target.value as "mensal" | "anual")}>
