@@ -66,6 +66,7 @@ export interface Licenca {
   status: "ativa" | "suspensa" | "cancelada";
   observacoes: string | null;
   modulo_ids: string[];
+  ultima_renovacao_em: string | null;
 }
 
 export interface ConciliacaoSintetico {
