@@ -21,8 +21,16 @@ export const licensingApi = {
     api.delete<{ deleted: boolean; inativado: boolean }>(`/licensing/produtos/${produtoId}`),
   listModulos: (produtoId: string) =>
     api.get<Modulo[]>(`/licensing/produtos/${produtoId}/modulos`),
-  updateModulo: (moduloId: string, valor_execucao: number) =>
-    api.patch<Modulo>(`/licensing/modulos/${moduloId}`, { valor_execucao }),
+  createModulo: (
+    produtoId: string,
+    payload: { codigo: string; nome: string; descricao?: string | null; valor_execucao: number }
+  ) => api.post<Modulo>(`/licensing/produtos/${produtoId}/modulos`, payload),
+  updateModulo: (
+    moduloId: string,
+    payload: Partial<Pick<Modulo, "nome" | "descricao" | "valor_execucao" | "ativo">>
+  ) => api.patch<Modulo>(`/licensing/modulos/${moduloId}`, payload),
+  deleteModulo: (moduloId: string) =>
+    api.delete<{ deleted: boolean; inativado: boolean }>(`/licensing/modulos/${moduloId}`),
 
   listPerfisAcesso: () => api.get<PerfilAcesso[]>("/licensing/perfis-acesso"),
   createPerfilAcesso: (payload: {

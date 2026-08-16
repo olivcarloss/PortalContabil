@@ -16,6 +16,7 @@ from app.schemas.licensing import (
     LicencaCreate,
     LicencaUpdate,
     Modulo,
+    ModuloCreate,
     ModuloUpdate,
     PerfilAcesso,
     PerfilAcessoCreate,
@@ -112,20 +113,70 @@ def list_modulos(produto_id: UUID, _: CurrentUser = Depends(get_current_user)):
         return cur.fetchall()
 
 
+@router.post(
+    "/produtos/{produto_id}/modulos", response_model=Modulo, status_code=status.HTTP_201_CREATED
+)
+def create_modulo(
+    produto_id: UUID, payload: ModuloCreate, _: CurrentUser = Depends(get_current_user)
+):
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into modulos (produto_id, codigo, nome, descricao, valor_execucao, ativo)
+            values (%(produto_id)s, %(codigo)s, %(nome)s, %(descricao)s, %(valor_execucao)s, %(ativo)s)
+            returning *;
+            """,
+            {**payload.model_dump(), "produto_id": str(produto_id)},
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row
+
+
 @router.patch("/modulos/{modulo_id}", response_model=Modulo)
 def update_modulo(
     modulo_id: UUID, payload: ModuloUpdate, _: CurrentUser = Depends(get_current_user)
 ):
+    fields = payload.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
+    set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
+    fields["id"] = str(modulo_id)
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "update modulos set valor_execucao = %s where id = %s returning *;",
-            (payload.valor_execucao, modulo_id),
+            f"update modulos set {set_clause} where id = %(id)s returning *;", fields
         )
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Modulo nao encontrado")
         conn.commit()
         return row
+
+
+@router.delete("/modulos/{modulo_id}", status_code=status.HTTP_200_OK)
+def delete_modulo(modulo_id: UUID, _: CurrentUser = Depends(get_current_user)):
+    """Tenta excluir definitivamente o modulo (so possivel se nunca foi
+    habilitado em nenhuma licenca/perfil). Se houver referencias, inativa
+    (soft delete) em vez de apagar o historico."""
+    with get_conn() as conn, conn.cursor() as cur:
+        try:
+            cur.execute("delete from modulos where id = %s returning id;", (modulo_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Modulo nao encontrado")
+            conn.commit()
+            return {"deleted": True, "inativado": False}
+        except psycopg.errors.ForeignKeyViolation:
+            conn.rollback()
+            cur.execute(
+                "update modulos set ativo = false where id = %s returning id;",
+                (modulo_id,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Modulo nao encontrado")
+            conn.commit()
+            return {"deleted": False, "inativado": True}
 
 
 # ============================================================

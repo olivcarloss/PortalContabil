@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Modal, { Field } from "../Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Modulo, Produto } from "../../api/types";
 import { centavosToReais, formatCurrency, reaisToCentavos } from "../../utils/masks";
@@ -8,6 +9,8 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingModulo, setEditingModulo] = useState<Modulo | null>(null);
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cnpjsByCliente, setCnpjsByCliente] = useState<Record<string, Cnpj[]>>({});
@@ -40,12 +43,28 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
     setSavingId(moduloId);
     setError(null);
     try {
-      await licensingApi.updateModulo(moduloId, centavosToReais(edits[moduloId] ?? "0"));
+      await licensingApi.updateModulo(moduloId, {
+        valor_execucao: centavosToReais(edits[moduloId] ?? "0"),
+      });
       refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function handleDelete(modulo: Modulo) {
+    if (!confirm(`Excluir o módulo "${modulo.nome}"? Se já tiver sido usado em alguma licença, ele será inativado em vez de apagado.`))
+      return;
+    try {
+      const result = await licensingApi.deleteModulo(modulo.id);
+      if (result.inativado) {
+        alert("Este módulo já foi usado em licenças, então foi inativado (mantendo o histórico) em vez de excluído.");
+      }
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
     }
   }
 
@@ -58,10 +77,15 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
 
   return (
     <div>
-      <p style={{ color: "var(--color-text-muted)", fontSize: "0.85rem", marginTop: 0 }}>
-        Valor de execução de cada módulo/funcionalidade de {produto.nome}. Módulos habilitados na
-        licença de um CNPJ ficam liberados para o usuário dentro do Portal Contábil.
-      </p>
+      <div className="panel-head" style={{ margin: "0 0 0.8rem" }}>
+        <p style={{ color: "var(--color-text-muted)", fontSize: "0.85rem", margin: 0 }}>
+          Valor de execução de cada módulo/funcionalidade de {produto.nome}. Módulos habilitados na
+          licença de um CNPJ ficam liberados para o usuário dentro do Portal Contábil.
+        </p>
+        <button className="btn btn-secondary" onClick={() => setShowForm(true)}>
+          + Novo módulo
+        </button>
+      </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
@@ -72,6 +96,7 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
               <th>Módulo</th>
               <th>Descrição</th>
               <th>Valor de execução</th>
+              <th>Status</th>
               <th></th>
             </tr>
           </thead>
@@ -90,19 +115,32 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
                   />
                 </td>
                 <td>
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => handleSave(m.id)}
-                    disabled={savingId === m.id}
-                  >
-                    {savingId === m.id ? "Salvando..." : "Salvar"}
-                  </button>
+                  <span className={`badge badge-${m.ativo ? "ativa" : "cancelada"}`}>
+                    {m.ativo ? "Ativo" : "Inativo"}
+                  </span>
+                </td>
+                <td>
+                  <div className="row-actions">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => handleSave(m.id)}
+                      disabled={savingId === m.id}
+                    >
+                      {savingId === m.id ? "Salvando..." : "Salvar valor"}
+                    </button>
+                    <button className="icon-btn" title="Editar" onClick={() => setEditingModulo(m)}>
+                      ✎
+                    </button>
+                    <button className="icon-btn" title="Excluir" onClick={() => handleDelete(m)}>
+                      🗑
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
             {modulos.length === 0 && (
               <tr>
-                <td colSpan={4} className="empty-state">
+                <td colSpan={5} className="empty-state">
                   Nenhum módulo cadastrado para este produto.
                 </td>
               </tr>
@@ -110,6 +148,29 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
           </tbody>
         </table>
       </div>
+
+      {showForm && (
+        <ModuloFormModal
+          produtoId={produto.id}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false);
+            refresh();
+          }}
+        />
+      )}
+
+      {editingModulo && (
+        <ModuloFormModal
+          produtoId={produto.id}
+          modulo={editingModulo}
+          onClose={() => setEditingModulo(null)}
+          onSaved={() => {
+            setEditingModulo(null);
+            refresh();
+          }}
+        />
+      )}
 
       {modulos.length > 0 && (
         <div style={{ marginTop: "1.5rem" }}>
@@ -232,5 +293,102 @@ function LicencaModulosRow({
         {error && <div style={{ color: "var(--color-danger)", fontSize: "0.75rem", marginTop: "0.3rem" }}>{error}</div>}
       </td>
     </tr>
+  );
+}
+
+function ModuloFormModal({
+  produtoId,
+  modulo,
+  onClose,
+  onSaved,
+}: {
+  produtoId: string;
+  modulo?: Modulo;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [codigo, setCodigo] = useState(modulo?.codigo ?? "");
+  const [nome, setNome] = useState(modulo?.nome ?? "");
+  const [descricao, setDescricao] = useState(modulo?.descricao ?? "");
+  const [valor, setValor] = useState(reaisToCentavos(modulo?.valor_execucao ?? 0));
+  const [ativo, setAtivo] = useState(modulo?.ativo ?? true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if ((!modulo && !codigo.trim()) || !nome.trim()) {
+      setError("Informe ao menos código e nome.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      if (modulo) {
+        await licensingApi.updateModulo(modulo.id, {
+          nome: nome.trim(),
+          descricao: descricao.trim() || null,
+          ativo,
+        });
+      } else {
+        await licensingApi.createModulo(produtoId, {
+          codigo: codigo.trim().toUpperCase().replace(/\s+/g, "_"),
+          nome: nome.trim(),
+          descricao: descricao.trim() || null,
+          valor_execucao: centavosToReais(valor),
+        });
+      }
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={modulo ? "Editar módulo" : "Novo módulo"}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onClose}>
+            Cancelar
+          </button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? "Salvando..." : "Salvar módulo"}
+          </button>
+        </>
+      }
+    >
+      {!modulo && (
+        <Field label="Código">
+          <input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Ex.: RELATORIO_GERENCIAL" />
+        </Field>
+      )}
+      <Field label="Nome do módulo">
+        <input value={nome} onChange={(e) => setNome(e.target.value)} />
+      </Field>
+      <Field label="Descrição">
+        <textarea value={descricao ?? ""} onChange={(e) => setDescricao(e.target.value)} rows={3} />
+      </Field>
+      {!modulo && (
+        <Field label="Valor de execução">
+          <input
+            value={formatCurrency(valor)}
+            onChange={(e) => setValor(e.target.value.replace(/\D/g, ""))}
+            style={{ width: 140 }}
+          />
+        </Field>
+      )}
+      {modulo && (
+        <Field label="Status">
+          <select value={ativo ? "1" : "0"} onChange={(e) => setAtivo(e.target.value === "1")}>
+            <option value="1">Ativo</option>
+            <option value="0">Inativo</option>
+          </select>
+        </Field>
+      )}
+      {error && <p style={{ color: "var(--color-danger)", fontSize: "0.85rem" }}>{error}</p>}
+    </Modal>
   );
 }

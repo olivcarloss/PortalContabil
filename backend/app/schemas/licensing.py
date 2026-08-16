@@ -91,8 +91,19 @@ class Modulo(BaseModel):
     valor_execucao: float = 0
 
 
+class ModuloCreate(BaseModel):
+    codigo: str
+    nome: str
+    descricao: str | None = None
+    valor_execucao: float = Field(default=0, ge=0)
+    ativo: bool = True
+
+
 class ModuloUpdate(BaseModel):
-    valor_execucao: float = Field(ge=0)
+    nome: str | None = None
+    descricao: str | None = None
+    valor_execucao: float | None = Field(default=None, ge=0)
+    ativo: bool | None = None
 
 
 class PerfilAcesso(BaseModel):
