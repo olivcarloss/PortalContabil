@@ -35,12 +35,28 @@ export default function AccountingHome() {
       .catch((e) => setError(e.message));
   }
 
+  const conciliacaoHabilitada = modulos.length > 0;
+
   return (
     <div>
       <h1>Portal Contábil</h1>
       <p style={{ color: "var(--color-text-muted)" }}>
-        Conciliações contábeis dos CNPJs licenciados para o seu usuário.
+        Produtos licenciados para os CNPJs do seu escritório.
       </p>
+
+      <div className="tabs" style={{ marginTop: "1.2rem" }}>
+        <button className="tab-btn active">
+          Conciliação
+          {!loading && (
+            <span
+              className={`badge badge-${conciliacaoHabilitada ? "ativa" : "cancelada"}`}
+              style={{ marginLeft: "0.5rem" }}
+            >
+              {conciliacaoHabilitada ? "Ativo" : "Sem CNPJ ativo"}
+            </span>
+          )}
+        </button>
+      </div>
 
       {error && (
         <p className="card" style={{ color: "var(--color-danger)", marginTop: "1rem" }}>

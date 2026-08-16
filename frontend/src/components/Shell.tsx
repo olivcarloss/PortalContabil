@@ -30,7 +30,6 @@ export default function Shell() {
         </div>
         <nav style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           {isAdmin && <SidebarLink to="/visao-geral" label="One Page de Produtos" />}
-          {isAdmin && <SidebarLink to="/conciliacao" label="Conciliação" />}
           <SidebarLink to="/licenciamento" label="Portal de Licenciamento" />
           <SidebarLink to="/contabil" label="Portal Contábil" />
         </nav>
