@@ -93,6 +93,9 @@ function NovoPerfilModal({
 
   const codigo = gerarCodigoInterno(nome);
 
+  const todosModuloIds = produtos.flatMap((p) => (modulosByProduto[p.id] ?? []).map((m) => m.id));
+  const todosSelecionados = todosModuloIds.length > 0 && todosModuloIds.every((id) => selectedModulos.has(id));
+
   function toggleModulo(id: string) {
     setSelectedModulos((prev) => {
       const next = new Set(prev);
@@ -100,6 +103,10 @@ function NovoPerfilModal({
       else next.add(id);
       return next;
     });
+  }
+
+  function toggleTodos() {
+    setSelectedModulos(todosSelecionados ? new Set() : new Set(todosModuloIds));
   }
 
   async function handleSave() {
@@ -143,11 +150,6 @@ function NovoPerfilModal({
       <Field label="Nome do perfil">
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Supervisor" />
       </Field>
-      <Field label="Código interno" hint="Gerado automaticamente a partir do nome — controle interno do produto, não pode ser alterado.">
-        <div className="mono" style={{ padding: "0.55rem 0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text-secondary)", fontSize: "0.92rem" }}>
-          {codigo || "—"}
-        </div>
-      </Field>
       <Field label="Descrição">
         <input value={descricao} onChange={(e) => setDescricao(e.target.value)} />
       </Field>
@@ -159,6 +161,11 @@ function NovoPerfilModal({
         </select>
       </Field>
       <Field label="Módulos liberados" hint="Selecione as funcionalidades que este perfil pode acessar.">
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.4rem" }}>
+          <button type="button" className="btn btn-secondary" onClick={toggleTodos} disabled={todosModuloIds.length === 0}>
+            {todosSelecionados ? "Desmarcar todos" : "Selecionar todos"}
+          </button>
+        </div>
         <div className="checklist">
           {produtos.map((p) => (
             <div key={p.id}>
