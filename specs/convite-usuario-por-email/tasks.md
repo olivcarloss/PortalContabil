@@ -29,9 +29,9 @@ Rules:
 
 ## Closing (the *close* phase of `dev-lifecycle` — always keep last)
 
-- [ ] Evolve tests/CI to cover the changes (create CI if none exists) — done when: pipeline green
-- [ ] Push the branch to origin — done when: branch published
-- [ ] Draft the PR (Summary / Notable Decisions / Test Plan, in English) and **pause for approval** — done when: user approved title + description
+- [x] Evolve tests/CI to cover the changes (create CI if none exists) — done when: pipeline green. *(Created `.github/workflows/ci.yml` — backend pytest + frontend tsc/vite build. Both gates verified green locally: `pytest` 4/4 passed, `npm run build` succeeded.)*
+- [ ] Push the branch to origin — **skipped by user decision**: no git remote is configured yet for this project. Branch `feat/convite-usuario-por-email` is committed locally, ready to push once a remote exists.
+- [ ] Draft the PR — **blocked on the above**: cannot open a PR without a remote/host. Revisit once a remote is configured.
 
 ## Done
 
