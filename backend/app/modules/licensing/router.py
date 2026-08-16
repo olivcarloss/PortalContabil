@@ -494,6 +494,10 @@ def list_licencas(
 
 @router.post("/licencas", response_model=Licenca, status_code=status.HTTP_201_CREATED)
 def create_licenca(payload: LicencaCreate, _: CurrentUser = Depends(get_current_user)):
+    if not payload.modulo_ids:
+        raise HTTPException(
+            status_code=422, detail="Selecione ao menos um modulo para ativar a licenca"
+        )
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("select escopo_licenca from produtos where id = %s;", (payload.produto_id,))
         produto = cur.fetchone()

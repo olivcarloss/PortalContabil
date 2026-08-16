@@ -8,6 +8,12 @@ const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", c
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
+function umAnoApos(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00`);
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AtivacoesTab({
   produto,
   onDataChanged,
@@ -167,7 +173,6 @@ function AtivarModal({
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [periodicidade, setPeriodicidade] = useState<"mensal" | "anual">("mensal");
   const [dataInicio, setDataInicio] = useState(new Date().toISOString().slice(0, 10));
-  const [dataFim, setDataFim] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -179,13 +184,24 @@ function AtivarModal({
     .filter((m) => selecionados.includes(m.id))
     .reduce((sum, m) => sum + m.valor_execucao, 0);
 
+  const dataFimCalculada = umAnoApos(dataInicio);
+  const todosSelecionados = modulos.length > 0 && modulos.every((m) => selecionados.includes(m.id));
+
   function toggleModulo(moduloId: string) {
     setSelecionados((prev) =>
       prev.includes(moduloId) ? prev.filter((id) => id !== moduloId) : [...prev, moduloId]
     );
   }
 
+  function toggleTodos() {
+    setSelecionados(todosSelecionados ? [] : modulos.map((m) => m.id));
+  }
+
   async function handleSave() {
+    if (selecionados.length === 0) {
+      setError("Selecione ao menos um módulo para ativar a licença.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -198,7 +214,7 @@ function AtivarModal({
         valor_total: valorCalculado,
         periodicidade,
         data_inicio: dataInicio,
-        data_fim: dataFim || null,
+        data_fim: dataFimCalculada,
         status: "ativa",
         modulo_ids: selecionados,
       });
@@ -230,7 +246,15 @@ function AtivarModal({
         {cnpj ? ` · CNPJ ${cnpj.cnpj}` : ""}
       </p>
       {modulos.length > 0 && (
-        <Field label="Módulos habilitados" hint="O valor é calculado automaticamente pela soma dos módulos marcados.">
+        <Field
+          label="Módulos habilitados"
+          hint="Obrigatório selecionar ao menos um módulo. O valor é calculado automaticamente pela soma dos módulos marcados."
+        >
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.4rem" }}>
+            <button type="button" className="btn btn-secondary" onClick={toggleTodos}>
+              {todosSelecionados ? "Desmarcar todos" : "Selecionar todos"}
+            </button>
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.8rem" }}>
             {modulos.map((m) => (
               <label key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem" }}>
@@ -264,8 +288,8 @@ function AtivarModal({
         <Field label="Início da vigência">
           <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
         </Field>
-        <Field label="Fim da vigência" hint="Deixe em branco para vigência automática de 1 ano a partir do início.">
-          <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+        <Field label="Fim da vigência" hint="Sempre 1 ano (365 dias) a partir do início.">
+          <input type="date" value={dataFimCalculada} disabled />
         </Field>
       </FieldRow>
       {error && <p style={{ color: "var(--color-danger)", fontSize: "0.85rem" }}>{error}</p>}
