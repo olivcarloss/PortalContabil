@@ -3,6 +3,7 @@ import { AuthProvider } from "./auth/AuthProvider";
 import RequireAuth from "./components/RequireAuth";
 import Shell from "./components/Shell";
 import Login from "./pages/Login";
+import RodriSaasLanding from "./pages/marketing/RodriSaasLanding";
 import LicensingHome from "./pages/licensing/LicensingHome";
 import AccountingHome from "./pages/accounting/AccountingHome";
 import VisaoGeral from "./pages/admin/VisaoGeral";
@@ -13,6 +14,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/rodrisaas" element={<RodriSaasLanding />} />
         <Route
           element={
             <RequireAuth>
