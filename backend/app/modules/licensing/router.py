@@ -151,6 +151,31 @@ def update_modulo(
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Modulo nao encontrado")
+
+        if "valor_execucao" in fields:
+            # O valor de uma licenca e sempre a soma dos modulos habilitados
+            # nela (nunca digitado manualmente) — se o preco de um modulo
+            # muda, toda licenca que o usa precisa ser recalculada, senao
+            # o valor_total fica congelado com o preco antigo.
+            cur.execute(
+                """
+                update licencas l
+                set valor_unitario = sub.total,
+                    valor_total = sub.total * l.qtd_licencas
+                from (
+                    select lm.licenca_id, coalesce(sum(m.valor_execucao), 0) as total
+                    from licenca_modulos lm
+                    join modulos m on m.id = lm.modulo_id
+                    where lm.licenca_id in (
+                        select licenca_id from licenca_modulos where modulo_id = %(id)s
+                    )
+                    group by lm.licenca_id
+                ) sub
+                where l.id = sub.licenca_id;
+                """,
+                {"id": fields["id"]},
+            )
+
         conn.commit()
         return row
 
