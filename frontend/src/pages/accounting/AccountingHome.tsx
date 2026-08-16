@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { accountingApi } from "../../api/accounting";
 import type { ConciliacaoSintetico, LancamentoAnalitico } from "../../api/types";
+import StatCard from "../../components/ui/StatCard";
+import StatusChart from "../../components/charts/StatusChart";
 
 const MESES = [
   "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez",
@@ -37,12 +39,30 @@ export default function AccountingHome() {
 
   const conciliacaoHabilitada = modulos.length > 0;
 
+  const statusBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of conciliacoes) counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
+    return [...counts.entries()].map(([status, total]) => ({ status, total }));
+  }, [conciliacoes]);
+
   return (
     <div>
       <h1>Portal Contábil</h1>
       <p style={{ color: "var(--color-text-muted)" }}>
         Produtos licenciados para os CNPJs do seu escritório.
       </p>
+
+      {!loading && temSintetico && conciliacoes.length > 0 && (
+        <div className="stat-grid" style={{ gridTemplateColumns: "1fr 2fr", marginTop: "1.2rem" }}>
+          <StatCard eyebrow="Conciliações disponíveis" value={String(conciliacoes.length)} />
+          <div className="card">
+            <div className="checklist-group-label" style={{ margin: "0 0 0.6rem" }}>
+              Status das conciliações
+            </div>
+            <StatusChart items={statusBreakdown} />
+          </div>
+        </div>
+      )}
 
       <div className="tabs" style={{ marginTop: "1.2rem" }}>
         <button className="tab-btn active">
