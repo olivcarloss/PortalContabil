@@ -5,6 +5,9 @@ import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
 
 const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
 export default function AtivacoesTab({ produto }: { produto: Produto }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cnpjsByCliente, setCnpjsByCliente] = useState<Record<string, Cnpj[]>>({});
@@ -77,6 +80,11 @@ export default function AtivacoesTab({ produto }: { produto: Produto }) {
                   {row.licenca
                     ? `${row.licenca.data_inicio} ${row.licenca.data_fim ? `– ${row.licenca.data_fim}` : "(sem fim)"}`
                     : "—"}
+                  {row.licenca?.ultima_renovacao_em && (
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+                      Renovada automaticamente em {formatDateTime(row.licenca.ultima_renovacao_em)}
+                    </div>
+                  )}
                 </td>
                 <td>
                   {row.licenca ? (
