@@ -2,6 +2,21 @@ export function onlyDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+/** Representa o valor em centavos como string de digitos (ex.: "R$ 12,34" -> "1234"). */
+export function reaisToCentavos(value: number): string {
+  return Math.round(value * 100).toString();
+}
+
+export function centavosToReais(digits: string): number {
+  const cents = parseInt(onlyDigits(digits) || "0", 10);
+  return cents / 100;
+}
+
+/** Mascara progressiva de moeda: cada digito digitado entra como centavo (padrao de caixa). */
+export function formatCurrency(digits: string): string {
+  return centavosToReais(digits).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 export function formatCnpj(value: string): string {
   const d = onlyDigits(value).slice(0, 14);
   if (d.length <= 2) return d;

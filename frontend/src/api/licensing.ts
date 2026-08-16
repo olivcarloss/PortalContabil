@@ -60,7 +60,12 @@ export const licensingApi = {
     api.post<Licenca>("/licensing/licencas", payload),
   updateLicenca: (
     licencaId: string,
-    payload: Partial<Pick<Licenca, "status" | "valor_unitario" | "valor_total" | "data_inicio" | "data_fim" | "qtd_licencas" | "observacoes">>
+    payload: Partial<
+      Pick<
+        Licenca,
+        "status" | "valor_unitario" | "valor_total" | "data_inicio" | "data_fim" | "qtd_licencas" | "observacoes" | "modulo_ids"
+      >
+    >
   ) => api.patch<Licenca>(`/licensing/licencas/${licencaId}`, payload),
 
   listMinhasLicencas: () => api.get<Licenca[]>("/licensing/me/licencas"),

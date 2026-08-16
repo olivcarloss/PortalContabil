@@ -145,6 +145,7 @@ class LicencaUpdate(BaseModel):
     data_fim: date | None = None
     qtd_licencas: int | None = Field(default=None, gt=0)
     observacoes: str | None = None
+    modulo_ids: list[UUID] | None = None
 
 
 class UsuarioPortalBase(BaseModel):
