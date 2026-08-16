@@ -91,4 +91,10 @@ export const licensingApi = {
     cliente_id: string;
     perfil_acesso_id: string;
   }) => api.post<UsuarioPortal>("/licensing/usuarios/convite", payload),
+  updateUsuario: (
+    usuarioId: string,
+    payload: Partial<Pick<UsuarioPortal, "nome" | "cargo" | "ativo">>
+  ) => api.patch<UsuarioPortal>(`/licensing/usuarios/${usuarioId}`, payload),
+  deleteUsuario: (usuarioId: string) =>
+    api.delete<{ deleted: boolean; inativado: boolean }>(`/licensing/usuarios/${usuarioId}`),
 };

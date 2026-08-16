@@ -10,6 +10,7 @@ export default function UsuariosTab() {
   const [perfis, setPerfis] = useState<PerfilAcesso[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingUsuario, setEditingUsuario] = useState<UsuarioPortal | null>(null);
 
   function refresh() {
     Promise.all([
@@ -26,6 +27,21 @@ export default function UsuariosTab() {
   }
 
   useEffect(refresh, []);
+
+  async function handleDelete(usuario: UsuarioPortal) {
+    if (
+      !confirm(
+        `Desativar o acesso de "${usuario.nome}" ao portal? A conta e o histórico de licenças são mantidos e o acesso pode ser reativado depois.`
+      )
+    )
+      return;
+    try {
+      await licensingApi.deleteUsuario(usuario.id);
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   return (
     <div>
@@ -65,6 +81,7 @@ export default function UsuariosTab() {
               <th>Escritório</th>
               <th>Convite</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -87,11 +104,21 @@ export default function UsuariosTab() {
                     {u.ativo ? "Ativo" : "Inativo"}
                   </span>
                 </td>
+                <td>
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+                    <button className="icon-btn" title="Editar" onClick={() => setEditingUsuario(u)}>
+                      ✎
+                    </button>
+                    <button className="icon-btn" title="Desativar" onClick={() => handleDelete(u)}>
+                      🗑
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
             {usuarios.length === 0 && (
               <tr>
-                <td colSpan={4} className="empty-state">
+                <td colSpan={5} className="empty-state">
                   Nenhum usuário cadastrado.
                 </td>
               </tr>
@@ -111,7 +138,86 @@ export default function UsuariosTab() {
           }}
         />
       )}
+
+      {editingUsuario && (
+        <EditarUsuarioModal
+          usuario={editingUsuario}
+          onClose={() => setEditingUsuario(null)}
+          onSaved={() => {
+            setEditingUsuario(null);
+            refresh();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function EditarUsuarioModal({
+  usuario,
+  onClose,
+  onSaved,
+}: {
+  usuario: UsuarioPortal;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [nome, setNome] = useState(usuario.nome);
+  const [cargo, setCargo] = useState(usuario.cargo ?? "");
+  const [ativo, setAtivo] = useState(usuario.ativo);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!nome.trim()) {
+      setError("Informe o nome do usuário.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await licensingApi.updateUsuario(usuario.id, {
+        nome: nome.trim(),
+        cargo: cargo.trim() || null,
+        ativo,
+      });
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      title="Editar usuário"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onClose}>
+            Cancelar
+          </button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+        </>
+      }
+    >
+      <Field label="Nome completo">
+        <input value={nome} onChange={(e) => setNome(e.target.value)} />
+      </Field>
+      <Field label="Cargo">
+        <input value={cargo} onChange={(e) => setCargo(e.target.value)} />
+      </Field>
+      <Field label="Status">
+        <select value={ativo ? "1" : "0"} onChange={(e) => setAtivo(e.target.value === "1")}>
+          <option value="1">Ativo</option>
+          <option value="0">Inativo</option>
+        </select>
+      </Field>
+      {error && <p style={{ color: "var(--color-danger)", fontSize: "0.85rem" }}>{error}</p>}
+    </Modal>
   );
 }
 
