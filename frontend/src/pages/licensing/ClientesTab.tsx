@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Modal, { Field, FieldRow } from "../../components/Modal";
+import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
 import { formatCnpj, formatTelefone, normalizeTelefoneDigits, onlyDigits } from "../../utils/masks";

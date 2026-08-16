@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Modal, { Field, FieldRow } from "../../components/Modal";
+import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Modulo, Produto } from "../../api/types";
 import AtivacoesTab from "../../components/produto/AtivacoesTab";

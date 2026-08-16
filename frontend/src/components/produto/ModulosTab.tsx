@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Modal, { Field } from "../Modal";
+import Modal, { Field } from "../ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Modulo, Produto } from "../../api/types";
 import { centavosToReais, formatCurrency, reaisToCentavos } from "../../utils/masks";

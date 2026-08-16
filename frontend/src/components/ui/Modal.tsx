@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+export { Field, FieldRow } from "./Field";
+
 export default function Modal({
   title,
   onClose,
@@ -19,7 +21,7 @@ export default function Modal({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(31, 27, 58, 0.5)",
+        background: "rgba(10, 10, 10, 0.5)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -35,7 +37,7 @@ export default function Modal({
           maxWidth: 560,
           maxHeight: "90vh",
           overflowY: "auto",
-          boxShadow: "0 30px 60px -20px rgba(31, 27, 58, 0.4)",
+          boxShadow: "0 30px 60px -20px rgba(10, 10, 10, 0.45)",
         }}
       >
         <div
@@ -79,24 +81,4 @@ export default function Modal({
       </div>
     </div>
   );
-}
-
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return (
-    <label style={{ display: "block", marginBottom: "1rem" }}>
-      <span style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.35rem" }}>
-        {label}
-      </span>
-      {children}
-      {hint && (
-        <span style={{ display: "block", fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.3rem" }}>
-          {hint}
-        </span>
-      )}
-    </label>
-  );
-}
-
-export function FieldRow({ children }: { children: ReactNode }) {
-  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>{children}</div>;
 }

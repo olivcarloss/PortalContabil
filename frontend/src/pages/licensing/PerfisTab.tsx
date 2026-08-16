@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Modal, { Field } from "../../components/Modal";
+import Modal, { Field } from "../../components/ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Modulo, PerfilAcesso, Produto } from "../../api/types";
 
