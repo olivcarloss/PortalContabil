@@ -112,6 +112,8 @@ class PerfilAcesso(BaseModel):
     nome: str
     descricao: str | None = None
     escopo: str
+    ativo: bool = True
+    modulo_ids: list[UUID] = Field(default_factory=list)
 
 
 class PerfilAcessoCreate(BaseModel):
@@ -120,6 +122,14 @@ class PerfilAcessoCreate(BaseModel):
     descricao: str | None = None
     escopo: str = Field(default="ambos", pattern="^(licenciamento|contabil|ambos)$")
     modulo_ids: list[UUID] = Field(default_factory=list)
+
+
+class PerfilAcessoUpdate(BaseModel):
+    nome: str | None = None
+    descricao: str | None = None
+    escopo: str | None = Field(default=None, pattern="^(licenciamento|contabil|ambos)$")
+    ativo: bool | None = None
+    modulo_ids: list[UUID] | None = None
 
 
 class LicencaBase(BaseModel):

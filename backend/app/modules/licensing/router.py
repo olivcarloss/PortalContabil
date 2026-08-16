@@ -22,6 +22,7 @@ from app.schemas.licensing import (
     ModuloUpdate,
     PerfilAcesso,
     PerfilAcessoCreate,
+    PerfilAcessoUpdate,
     Produto,
     ProdutoCreate,
     ProdutoUpdate,
@@ -212,7 +213,14 @@ def delete_modulo(modulo_id: UUID, _: CurrentUser = Depends(get_current_user)):
 @router.get("/perfis-acesso", response_model=list[PerfilAcesso])
 def list_perfis_acesso(_: CurrentUser = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select * from perfis_acesso order by nome;")
+        cur.execute(
+            "select p.*, coalesce(pm.modulo_ids, '{}') as modulo_ids "
+            "from perfis_acesso p "
+            "left join lateral ("
+            "  select array_agg(modulo_id) as modulo_ids from perfil_modulo_permissoes where perfil_id = p.id"
+            ") pm on true "
+            "order by p.ativo desc, p.nome;"
+        )
         return cur.fetchall()
 
 
@@ -245,7 +253,77 @@ def create_perfil_acesso(
             )
 
         conn.commit()
+        perfil["modulo_ids"] = payload.modulo_ids
         return perfil
+
+
+@router.patch("/perfis-acesso/{perfil_id}", response_model=PerfilAcesso)
+def update_perfil_acesso(
+    perfil_id: UUID, payload: PerfilAcessoUpdate, _: CurrentUser = Depends(get_current_user)
+):
+    fields = payload.model_dump(exclude_unset=True)
+    modulo_ids = fields.pop("modulo_ids", None)
+    if not fields and modulo_ids is None:
+        raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
+
+    with get_conn() as conn, conn.cursor() as cur:
+        if modulo_ids is not None:
+            cur.execute("delete from perfil_modulo_permissoes where perfil_id = %s;", (perfil_id,))
+            for modulo_id in modulo_ids:
+                cur.execute(
+                    """
+                    insert into perfil_modulo_permissoes (perfil_id, modulo_id, pode_ler)
+                    values (%s, %s, true)
+                    on conflict do nothing;
+                    """,
+                    (perfil_id, str(modulo_id)),
+                )
+
+        if fields:
+            set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
+            fields["id"] = str(perfil_id)
+            cur.execute(f"update perfis_acesso set {set_clause} where id = %(id)s returning *;", fields)
+            row = cur.fetchone()
+        else:
+            cur.execute("select * from perfis_acesso where id = %s;", (perfil_id,))
+            row = cur.fetchone()
+
+        if row is None:
+            raise HTTPException(status_code=404, detail="Perfil nao encontrado")
+
+        cur.execute(
+            "select coalesce(array_agg(modulo_id), '{}') as modulo_ids from perfil_modulo_permissoes where perfil_id = %s;",
+            (perfil_id,),
+        )
+        row["modulo_ids"] = cur.fetchone()["modulo_ids"]
+        conn.commit()
+        return row
+
+
+@router.delete("/perfis-acesso/{perfil_id}", status_code=status.HTTP_200_OK)
+def delete_perfil_acesso(perfil_id: UUID, _: CurrentUser = Depends(get_current_user)):
+    """Tenta excluir definitivamente o perfil (so possivel se nunca foi
+    concedido a nenhum usuario). Se ja estiver em uso, inativa (soft
+    delete) em vez de apagar o historico de acesso."""
+    with get_conn() as conn, conn.cursor() as cur:
+        try:
+            cur.execute("delete from perfis_acesso where id = %s returning id;", (perfil_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Perfil nao encontrado")
+            conn.commit()
+            return {"deleted": True, "inativado": False}
+        except psycopg.errors.ForeignKeyViolation:
+            conn.rollback()
+            cur.execute(
+                "update perfis_acesso set ativo = false where id = %s returning id;",
+                (perfil_id,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Perfil nao encontrado")
+            conn.commit()
+            return {"deleted": False, "inativado": True}
 
 
 # ============================================================

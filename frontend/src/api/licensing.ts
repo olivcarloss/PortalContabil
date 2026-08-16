@@ -40,6 +40,12 @@ export const licensingApi = {
     escopo: string;
     modulo_ids: string[];
   }) => api.post<PerfilAcesso>("/licensing/perfis-acesso", payload),
+  updatePerfilAcesso: (
+    perfilId: string,
+    payload: Partial<Pick<PerfilAcesso, "nome" | "descricao" | "escopo" | "ativo" | "modulo_ids">>
+  ) => api.patch<PerfilAcesso>(`/licensing/perfis-acesso/${perfilId}`, payload),
+  deletePerfilAcesso: (perfilId: string) =>
+    api.delete<{ deleted: boolean; inativado: boolean }>(`/licensing/perfis-acesso/${perfilId}`),
 
   listClientes: () => api.get<Cliente[]>("/licensing/clientes"),
   createCliente: (payload: Partial<Cliente>) =>

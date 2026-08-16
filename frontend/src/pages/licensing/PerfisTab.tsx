@@ -10,6 +10,7 @@ export default function PerfisTab() {
   const [modulosByProduto, setModulosByProduto] = useState<Record<string, Modulo[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingPerfil, setEditingPerfil] = useState<PerfilAcesso | null>(null);
 
   function refresh() {
     Promise.all([licensingApi.listPerfisAcesso(), licensingApi.listProdutos()])
@@ -25,6 +26,20 @@ export default function PerfisTab() {
   }
 
   useEffect(refresh, []);
+
+  async function handleDelete(perfil: PerfilAcesso) {
+    if (!confirm(`Excluir o perfil "${perfil.nome}"? Se já tiver sido concedido a algum usuário, ele será inativado em vez de apagado.`))
+      return;
+    try {
+      const result = await licensingApi.deletePerfilAcesso(perfil.id);
+      if (result.inativado) {
+        alert("Este perfil já foi concedido a usuários, então foi inativado (mantendo o histórico de acesso) em vez de excluído.");
+      }
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   return (
     <div>
@@ -51,7 +66,18 @@ export default function PerfisTab() {
                 <h3>{p.nome}</h3>
                 <div className="sub">{p.descricao}</div>
               </div>
-              <span className="badge badge-neutral">{p.escopo}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span className="badge badge-neutral">{p.escopo}</span>
+                <span className={`badge badge-${p.ativo ? "ativa" : "cancelada"}`}>
+                  {p.ativo ? "Ativo" : "Inativo"}
+                </span>
+                <button className="icon-btn" title="Editar" onClick={() => setEditingPerfil(p)}>
+                  ✎
+                </button>
+                <button className="icon-btn" title="Excluir" onClick={() => handleDelete(p)}>
+                  🗑
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -59,12 +85,25 @@ export default function PerfisTab() {
       </div>
 
       {showForm && (
-        <NovoPerfilModal
+        <PerfilFormModal
           produtos={produtos}
           modulosByProduto={modulosByProduto}
           onClose={() => setShowForm(false)}
-          onCreated={() => {
+          onSaved={() => {
             setShowForm(false);
+            refresh();
+          }}
+        />
+      )}
+
+      {editingPerfil && (
+        <PerfilFormModal
+          perfil={editingPerfil}
+          produtos={produtos}
+          modulosByProduto={modulosByProduto}
+          onClose={() => setEditingPerfil(null)}
+          onSaved={() => {
+            setEditingPerfil(null);
             refresh();
           }}
         />
@@ -73,25 +112,28 @@ export default function PerfisTab() {
   );
 }
 
-function NovoPerfilModal({
+function PerfilFormModal({
+  perfil,
   produtos,
   modulosByProduto,
   onClose,
-  onCreated,
+  onSaved,
 }: {
+  perfil?: PerfilAcesso;
   produtos: Produto[];
   modulosByProduto: Record<string, Modulo[]>;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }) {
-  const [nome, setNome] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [escopo, setEscopo] = useState("ambos");
-  const [selectedModulos, setSelectedModulos] = useState<Set<string>>(new Set());
+  const [nome, setNome] = useState(perfil?.nome ?? "");
+  const [descricao, setDescricao] = useState(perfil?.descricao ?? "");
+  const [escopo, setEscopo] = useState(perfil?.escopo ?? "ambos");
+  const [ativo, setAtivo] = useState(perfil?.ativo ?? true);
+  const [selectedModulos, setSelectedModulos] = useState<Set<string>>(new Set(perfil?.modulo_ids ?? []));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const codigo = gerarCodigoInterno(nome);
+  const codigo = perfil?.codigo ?? gerarCodigoInterno(nome);
 
   const todosModuloIds = produtos.flatMap((p) => (modulosByProduto[p.id] ?? []).map((m) => m.id));
   const todosSelecionados = todosModuloIds.length > 0 && todosModuloIds.every((id) => selectedModulos.has(id));
@@ -117,14 +159,24 @@ function NovoPerfilModal({
     setSaving(true);
     setError(null);
     try {
-      await licensingApi.createPerfilAcesso({
-        codigo,
-        nome: nome.trim(),
-        descricao: descricao.trim() || null,
-        escopo,
-        modulo_ids: [...selectedModulos],
-      });
-      onCreated();
+      if (perfil) {
+        await licensingApi.updatePerfilAcesso(perfil.id, {
+          nome: nome.trim(),
+          descricao: descricao.trim() || null,
+          escopo,
+          ativo,
+          modulo_ids: [...selectedModulos],
+        });
+      } else {
+        await licensingApi.createPerfilAcesso({
+          codigo,
+          nome: nome.trim(),
+          descricao: descricao.trim() || null,
+          escopo,
+          modulo_ids: [...selectedModulos],
+        });
+      }
+      onSaved();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -134,7 +186,7 @@ function NovoPerfilModal({
 
   return (
     <Modal
-      title="Novo perfil de acesso"
+      title={perfil ? "Editar perfil de acesso" : "Novo perfil de acesso"}
       onClose={onClose}
       footer={
         <>
@@ -151,7 +203,7 @@ function NovoPerfilModal({
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Supervisor" />
       </Field>
       <Field label="Descrição">
-        <input value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+        <input value={descricao ?? ""} onChange={(e) => setDescricao(e.target.value)} />
       </Field>
       <Field label="Escopo">
         <select value={escopo} onChange={(e) => setEscopo(e.target.value)}>
@@ -160,6 +212,14 @@ function NovoPerfilModal({
           <option value="contabil">Somente Contábil</option>
         </select>
       </Field>
+      {perfil && (
+        <Field label="Status">
+          <select value={ativo ? "1" : "0"} onChange={(e) => setAtivo(e.target.value === "1")}>
+            <option value="1">Ativo</option>
+            <option value="0">Inativo</option>
+          </select>
+        </Field>
+      )}
       <Field label="Módulos liberados" hint="Selecione as funcionalidades que este perfil pode acessar.">
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.4rem" }}>
           <button type="button" className="btn btn-secondary" onClick={toggleTodos} disabled={todosModuloIds.length === 0}>
