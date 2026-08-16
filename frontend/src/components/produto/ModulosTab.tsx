@@ -4,7 +4,15 @@ import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Modulo, Produto } from "../../api/types";
 import { centavosToReais, formatCurrency, reaisToCentavos } from "../../utils/masks";
 
-export default function ModulosTab({ produto }: { produto: Produto }) {
+export default function ModulosTab({
+  produto,
+  onDataChanged,
+}: {
+  produto: Produto;
+  /** Notifies a parent (ex.: ProdutosTab) that módulo/licença values changed,
+   * so it can refetch its own aggregates (ex.: receita recorrente mensal). */
+  onDataChanged?: () => void;
+}) {
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -47,6 +55,7 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
         valor_execucao: centavosToReais(edits[moduloId] ?? "0"),
       });
       refresh();
+      onDataChanged?.();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -196,7 +205,10 @@ export default function ModulosTab({ produto }: { produto: Produto }) {
                     licenca={licenca}
                     modulos={modulos}
                     label={labelFor(licenca)}
-                    onSaved={refresh}
+                    onSaved={() => {
+                      refresh();
+                      onDataChanged?.();
+                    }}
                   />
                 ))}
                 {licencas.length === 0 && (

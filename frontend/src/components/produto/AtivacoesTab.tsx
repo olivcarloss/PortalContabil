@@ -8,7 +8,15 @@ const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", c
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-export default function AtivacoesTab({ produto }: { produto: Produto }) {
+export default function AtivacoesTab({
+  produto,
+  onDataChanged,
+}: {
+  produto: Produto;
+  /** Notifies a parent (ex.: ProdutosTab) that licença values changed, so
+   * it can refetch its own aggregates (ex.: receita recorrente mensal). */
+  onDataChanged?: () => void;
+}) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cnpjsByCliente, setCnpjsByCliente] = useState<Record<string, Cnpj[]>>({});
   const [licencas, setLicencas] = useState<Licenca[]>([]);
@@ -34,6 +42,7 @@ export default function AtivacoesTab({ produto }: { produto: Produto }) {
     try {
       await licensingApi.updateLicenca(licenca.id, { status: status as Licenca["status"] });
       refresh();
+      onDataChanged?.();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -133,6 +142,7 @@ export default function AtivacoesTab({ produto }: { produto: Produto }) {
           onCreated={() => {
             setAtivarFor(null);
             refresh();
+            onDataChanged?.();
           }}
         />
       )}

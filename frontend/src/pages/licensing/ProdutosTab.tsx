@@ -17,6 +17,10 @@ export default function ProdutosTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedView, setExpandedView] = useState<"ativacoes" | "modulos">("ativacoes");
 
+  function refreshLicencas() {
+    licensingApi.listLicencas().then(setLicencas).catch((e) => setError(e.message));
+  }
+
   function refresh() {
     licensingApi
       .listProdutos()
@@ -29,7 +33,7 @@ export default function ProdutosTab() {
       })
       .catch((e) => setError(e.message));
 
-    licensingApi.listLicencas().then(setLicencas).catch((e) => setError(e.message));
+    refreshLicencas();
   }
 
   useEffect(refresh, []);
@@ -145,7 +149,11 @@ export default function ProdutosTab() {
             </div>
             {expandedId === p.id && (
               <div style={{ borderTop: "1px solid var(--color-border)", padding: "1.25rem" }}>
-                {expandedView === "ativacoes" ? <AtivacoesTab produto={p} /> : <ModulosTab produto={p} />}
+                {expandedView === "ativacoes" ? (
+                  <AtivacoesTab produto={p} onDataChanged={refreshLicencas} />
+                ) : (
+                  <ModulosTab produto={p} onDataChanged={refreshLicencas} />
+                )}
               </div>
             )}
           </div>
