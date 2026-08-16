@@ -134,6 +134,7 @@ class Licenca(LicencaBase):
     id: UUID
     criado_em: datetime
     atualizado_em: datetime
+    ultima_renovacao_em: datetime | None = None
 
 
 class LicencaUpdate(BaseModel):
