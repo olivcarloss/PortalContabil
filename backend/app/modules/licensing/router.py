@@ -40,7 +40,7 @@ router = APIRouter(prefix="/licensing", tags=["licensing"])
 @router.get("/produtos", response_model=list[Produto])
 def list_produtos(_: CurrentUser = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select * from produtos order by nome;")
+        cur.execute("select * from produtos order by ativo desc, nome;")
         return cur.fetchall()
 
 

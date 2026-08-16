@@ -377,11 +377,6 @@ function ModuloFormModal({
       <Field label="Nome do módulo">
         <input value={nome} onChange={(e) => setNome(e.target.value)} />
       </Field>
-      <Field label="Código interno" hint="Gerado automaticamente a partir do nome — controle interno do produto, não pode ser alterado.">
-        <div className="mono" style={{ padding: "0.55rem 0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text-secondary)", fontSize: "0.92rem" }}>
-          {codigo || "—"}
-        </div>
-      </Field>
       <Field label="Descrição">
         <textarea value={descricao ?? ""} onChange={(e) => setDescricao(e.target.value)} rows={3} />
       </Field>
