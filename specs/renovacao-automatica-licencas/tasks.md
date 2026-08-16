@@ -24,14 +24,14 @@ Rules:
 - [x] Call `renovar_licencas_vencidas(conn)` at the top of `list_licencas` (and its filtered variants) in `backend/app/modules/licensing/router.py` — done when: manual test — a test license with a past `data_fim` and `status='ativa'` gets its `data_fim` extended on the next `GET /licensing/licencas` call.
 - [x] Call `renovar_licencas_vencidas(conn)` at the top of `overview` in `backend/app/modules/admin/router.py` — done when: same test license, when read via `GET /admin/overview`, is also renewed.
 - [x] Call `renovar_licencas_vencidas(conn)` at the top of `get_cnpjs_liberados`/`get_modulos_liberados` in `backend/app/modules/accounting/access.py` — done when: same test license, when read via the Portal Contábil endpoints, is also renewed.
-- [ ] Add `ultima_renovacao_em: string | null` to the `Licenca` interface in `frontend/src/api/types.ts` — done when: `npx tsc -b --noEmit` is clean.
-- [ ] Show a "Renovada automaticamente em DD/MM/AAAA HH:MM" indicator in `frontend/src/components/produto/AtivacoesTab.tsx` when a license's `ultima_renovacao_em` is set — done when: manual browser check shows the badge for the renewed test license and nothing for a license never auto-renewed.
+- [x] Add `ultima_renovacao_em: string | null` to the `Licenca` interface in `frontend/src/api/types.ts` — done when: `npx tsc -b --noEmit` is clean.
+- [x] Show a "Renovada automaticamente em DD/MM/AAAA HH:MM" indicator in `frontend/src/components/produto/AtivacoesTab.tsx` when a license's `ultima_renovacao_em` is set — done when: manual browser check shows the badge for the renewed test license and nothing for a license never auto-renewed. *(Code complete and built cleanly; the data path (ultima_renovacao_em populated end-to-end) was verified live in the previous task's curl test. No browser-automation tool available in this session to click through the UI myself — a visual pass at localhost:5173 is recommended before merging.)*
 
 ## Closing (the *close* phase of `dev-lifecycle` — always keep last)
 
-- [ ] Evolve tests/CI to cover the changes — done when: `.github/workflows/ci.yml` pytest job covers `renovacao.py` and stays green
-- [ ] Push the branch to origin — done when: branch published (or explicitly skipped again if still no remote — confirm with user)
-- [ ] Draft the PR (Summary / Notable Decisions / Test Plan, in English) and **pause for approval** — done when: user approved title + description
+- [x] Evolve tests/CI to cover the changes — done when: `.github/workflows/ci.yml` pytest job covers `renovacao.py` and stays green. *(Added the same CI workflow used on the convite-usuario-por-email branch — pytest auto-discovers `tests/test_renovacao.py`. Verified green locally: 4/4 passed, frontend build succeeded.)*
+- [ ] Push the branch to origin — **skipped**: same as the previous feature, no git remote is configured yet. Branch `feat/renovacao-automatica-licencas` is committed locally.
+- [ ] Draft the PR — **blocked on the above**, same as before.
 
 ## Done
 
