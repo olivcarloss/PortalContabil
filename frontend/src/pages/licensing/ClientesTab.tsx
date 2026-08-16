@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
+import { formatCnpj, formatTelefone, normalizeTelefoneDigits, onlyDigits } from "../../utils/masks";
 
 export default function ClientesTab() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -163,11 +164,11 @@ export default function ClientesTab() {
             <tbody>
               {cnpjs.map((c) => (
                 <tr key={c.id}>
-                  <td className="mono">{c.cnpj}</td>
+                  <td className="mono">{formatCnpj(c.cnpj)}</td>
                   <td>{c.razao_social}</td>
                   <td>{c.nome_fantasia ?? "—"}</td>
                   <td>{c.email_contato ?? "—"}</td>
-                  <td>{c.telefone ?? "—"}</td>
+                  <td>{c.telefone ? formatTelefone(normalizeTelefoneDigits(c.telefone)) : "—"}</td>
                   <td>
                     <span className={`badge badge-${c.ativo ? "ativa" : "cancelada"}`}>
                       {c.ativo ? "Ativo" : "Inativo"}
@@ -365,40 +366,43 @@ function ClienteCnpjModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [numeroCnpj, setNumeroCnpj] = useState(cnpj?.cnpj ?? "");
+  const [numeroCnpj, setNumeroCnpj] = useState(onlyDigits(cnpj?.cnpj ?? ""));
   const [razaoSocial, setRazaoSocial] = useState(cnpj?.razao_social ?? "");
   const [nomeFantasia, setNomeFantasia] = useState(cnpj?.nome_fantasia ?? "");
   const [email, setEmail] = useState(cnpj?.email_contato ?? "");
-  const [telefone, setTelefone] = useState(cnpj?.telefone ?? "");
+  const [telefone, setTelefone] = useState(
+    cnpj?.telefone ? normalizeTelefoneDigits(cnpj.telefone) : "55"
+  );
   const [ativo, setAtivo] = useState(cnpj?.ativo ?? true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
-    if (!numeroCnpj.trim() || !razaoSocial.trim()) {
+    if (!numeroCnpj || !razaoSocial.trim()) {
       setError("Informe ao menos CNPJ e razão social.");
       return;
     }
     setSaving(true);
     setError(null);
+    const telefoneParaSalvar = telefone.length > 2 ? telefone : null;
     try {
       if (cnpj) {
         await licensingApi.updateCnpj(cnpj.id, {
-          cnpj: numeroCnpj.trim(),
+          cnpj: numeroCnpj,
           razao_social: razaoSocial.trim(),
           nome_fantasia: nomeFantasia.trim() || null,
           email_contato: email.trim() || null,
-          telefone: telefone.trim() || null,
+          telefone: telefoneParaSalvar,
           ativo,
         });
       } else {
         await licensingApi.createCnpj({
           cliente_id: clienteId,
-          cnpj: numeroCnpj.trim(),
+          cnpj: numeroCnpj,
           razao_social: razaoSocial.trim(),
           nome_fantasia: nomeFantasia.trim() || null,
           email_contato: email.trim() || null,
-          telefone: telefone.trim() || null,
+          telefone: telefoneParaSalvar,
           ativo: true,
         });
       }
@@ -427,7 +431,11 @@ function ClienteCnpjModal({
     >
       <FieldRow>
         <Field label="CNPJ">
-          <input value={numeroCnpj} onChange={(e) => setNumeroCnpj(e.target.value)} placeholder="00000000000000" />
+          <input
+            value={formatCnpj(numeroCnpj)}
+            onChange={(e) => setNumeroCnpj(onlyDigits(e.target.value))}
+            placeholder="00.000.000/0000-00"
+          />
         </Field>
         <Field label="Nome fantasia">
           <input value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} />
@@ -440,8 +448,12 @@ function ClienteCnpjModal({
         <Field label="E-mail">
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
-        <Field label="Telefone (com DDD)">
-          <input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(11) 91234-5678" />
+        <Field label="Telefone (DDI + DDD)">
+          <input
+            value={formatTelefone(telefone)}
+            onChange={(e) => setTelefone(onlyDigits(e.target.value))}
+            placeholder="+55 (11) 91234-5678"
+          />
         </Field>
       </FieldRow>
       {cnpj && (
