@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
+import StatCard from "../../components/ui/StatCard";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, PerfilAcesso, UsuarioPortal } from "../../api/types";
 
@@ -39,6 +40,19 @@ export default function UsuariosTab() {
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Convidar usuário
         </button>
+      </div>
+
+      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <StatCard
+          eyebrow="Usuários ativos"
+          value={String(usuarios.filter((u) => u.convite_status === "ativo").length)}
+          delta={`de ${usuarios.length} cadastrados`}
+        />
+        <StatCard
+          eyebrow="Convites pendentes"
+          value={String(usuarios.filter((u) => u.convite_status === "pendente").length)}
+          delta="aguardando aceite"
+        />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}

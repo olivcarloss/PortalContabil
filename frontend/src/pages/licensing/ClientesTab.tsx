@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
+import StatCard from "../../components/ui/StatCard";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
 import { formatCnpj, formatTelefone, normalizeTelefoneDigits, onlyDigits } from "../../utils/masks";
@@ -76,6 +77,19 @@ export default function ClientesTab() {
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Novo escritório
         </button>
+      </div>
+
+      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <StatCard
+          eyebrow="Escritórios ativos"
+          value={String(clientes.filter((c) => c.ativo).length)}
+          delta={`de ${clientes.length} cadastrados`}
+        />
+        <StatCard
+          eyebrow="CNPJs cadastrados"
+          value={String(Object.values(cnpjCountByCliente).reduce((sum, n) => sum + n, 0))}
+          delta="clientes atendidos, todos os escritórios"
+        />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}

@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
+import StatCard from "../../components/ui/StatCard";
 import { licensingApi } from "../../api/licensing";
-import type { Modulo, Produto } from "../../api/types";
+import type { Licenca, Modulo, Produto } from "../../api/types";
 import AtivacoesTab from "../../components/produto/AtivacoesTab";
 import ModulosTab from "../../components/produto/ModulosTab";
 
 export default function ProdutosTab() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [modulosByProduto, setModulosByProduto] = useState<Record<string, Modulo[]>>({});
+  const [licencas, setLicencas] = useState<Licenca[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
@@ -26,6 +28,8 @@ export default function ProdutosTab() {
         setModulosByProduto(Object.fromEntries(entries));
       })
       .catch((e) => setError(e.message));
+
+    licensingApi.listLicencas().then(setLicencas).catch((e) => setError(e.message));
   }
 
   useEffect(refresh, []);
@@ -65,6 +69,22 @@ export default function ProdutosTab() {
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Novo produto
         </button>
+      </div>
+
+      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+        <StatCard
+          eyebrow="Produtos ativos"
+          value={String(produtos.filter((p) => p.ativo).length)}
+          delta={`de ${produtos.length} no catálogo`}
+        />
+        <StatCard
+          eyebrow="Receita recorrente mensal"
+          value={licencas
+            .filter((l) => l.status === "ativa" && l.periodicidade === "mensal")
+            .reduce((sum, l) => sum + l.valor_total, 0)
+            .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          delta="licenças mensais ativas, todos os produtos"
+        />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
