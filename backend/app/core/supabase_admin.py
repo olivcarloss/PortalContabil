@@ -26,6 +26,7 @@ def invite_user(email: str, nome: str) -> tuple[str, bool]:
     resp = httpx.post(
         f"{settings.supabase_url}/auth/v1/invite",
         headers=_headers(),
+        params={"redirect_to": f"{settings.frontend_origin}/aceitar-convite"},
         json={"email": email, "data": {"nome": nome}},
         timeout=10,
     )

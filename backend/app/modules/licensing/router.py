@@ -30,6 +30,7 @@ from app.schemas.licensing import (
     UsuarioLicenca,
     UsuarioLicencaCreate,
     UsuarioPortal,
+    UsuarioPortalUpdate,
 )
 
 router = APIRouter(prefix="/licensing", tags=["licensing"])
@@ -651,6 +652,44 @@ def list_usuarios(cliente_id: UUID, _: CurrentUser = Depends(get_current_user)):
             (cliente_id,),
         )
         return _with_convite_status(cur.fetchall())
+
+
+@router.patch("/usuarios/{usuario_id}", response_model=UsuarioPortal)
+def update_usuario(
+    usuario_id: UUID, payload: UsuarioPortalUpdate, _: CurrentUser = Depends(get_current_user)
+):
+    fields = payload.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
+    set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
+    fields["id"] = str(usuario_id)
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"update usuarios_portal set {set_clause} where id = %(id)s returning *;", fields
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        conn.commit()
+        row["convite_status"] = supabase_admin.get_users_status([str(usuario_id)])[str(usuario_id)]
+        return row
+
+
+@router.delete("/usuarios/{usuario_id}", status_code=status.HTTP_200_OK)
+def delete_usuario(usuario_id: UUID, _: CurrentUser = Depends(get_current_user)):
+    """Revoga o acesso do usuario ao portal (inativa) sem apagar a conta de
+    autenticacao nem o historico de vinculos com licencas — reversivel
+    reativando (PATCH ativo=true)."""
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "update usuarios_portal set ativo = false where id = %s returning id;",
+            (usuario_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        conn.commit()
+        return {"deleted": False, "inativado": True}
 
 
 @router.post(

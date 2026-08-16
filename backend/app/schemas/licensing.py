@@ -184,6 +184,12 @@ class UsuarioConviteCreate(BaseModel):
     perfil_acesso_id: UUID
 
 
+class UsuarioPortalUpdate(BaseModel):
+    nome: str | None = None
+    cargo: str | None = None
+    ativo: bool | None = None
+
+
 class UsuarioPortal(UsuarioPortalBase):
     criado_em: datetime
     atualizado_em: datetime
