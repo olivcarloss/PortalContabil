@@ -1,37 +1,40 @@
-// Tokens extraidos de www.ia-cloude.com (marca principal IA-Cloude)
+// Paleta monocromática premium, mesma linguagem visual da landing page
+// RodriSaas (/rodrisaas) — ver frontend/src/theme/global.css para os
+// custom properties equivalentes usados em runtime.
 
 export const colors = {
-  primary: "#534AB7", // roxo (marca)
-  primaryDark: "#3f38a0",
-  secondary: "#7F77DD", // roxo secundario/claro
-  accent: "#EA580C", // laranja (CTAs)
-  accentLight: "#FFF4E6",
-  background: "#f8f7f4",
-  surface: "#ffffff",
-  surfaceAlt: "#EEEDFE", // fundo lilas claro
-  border: "#e5e1f5",
-  textPrimary: "#1f1b3a",
-  textSecondary: "#4a4560",
-  textMuted: "#6b7280",
-  success: "#16a34a",
+  primary: "#0A0A0A",
+  primaryDark: "#000000",
+  secondary: "#52525B",
+  accent: "#0A0A0A",
+  accentLight: "#F4F4F5",
+  background: "#FAFAFA",
+  surface: "#FFFFFF",
+  surfaceAlt: "#F4F4F5",
+  border: "#E5E5E8",
+  textPrimary: "#0A0A0A",
+  textSecondary: "#27272A",
+  textMuted: "#6B6B74",
+  success: "#16A34A",
   successLight: "#F0FDF4",
-  warning: "#f59e0b",
-  warningLight: "#fef3c7",
-  danger: "#c0392b",
-  whatsapp: "#25d366",
+  warning: "#F59E0B",
+  warningLight: "#FEF3C7",
+  danger: "#DC2626",
+  gradA: "#6D5BF5",
+  gradB: "#3B82F6",
 };
 
 export const fonts = {
-  heading: "'Sora', sans-serif",
-  body: "'DM Sans', sans-serif",
+  heading: "'Inter', sans-serif",
+  body: "'Inter', sans-serif",
 };
 
 export const radii = {
-  sm: "6px",
-  md: "10px",
-  lg: "16px",
+  sm: "8px",
+  md: "14px",
+  lg: "20px",
 };
 
 export const shadows = {
-  card: "0 1px 3px rgba(83, 74, 183, 0.08), 0 1px 2px rgba(83, 74, 183, 0.06)",
+  card: "0 1px 2px rgba(10, 10, 10, 0.04), 0 8px 20px -10px rgba(10, 10, 10, 0.1)",
 };
