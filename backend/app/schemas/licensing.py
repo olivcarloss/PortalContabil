@@ -154,13 +154,17 @@ class UsuarioPortalBase(BaseModel):
     ativo: bool = True
 
 
-class UsuarioPortalCreate(UsuarioPortalBase):
-    pass
+class UsuarioConviteCreate(BaseModel):
+    nome: str
+    email: str
+    cliente_id: UUID
+    perfil_acesso_id: UUID
 
 
 class UsuarioPortal(UsuarioPortalBase):
     criado_em: datetime
     atualizado_em: datetime
+    convite_status: str = "ativo"
 
 
 class UsuarioLicencaCreate(BaseModel):
