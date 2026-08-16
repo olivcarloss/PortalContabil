@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Modal, { Field } from "../../components/ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Modulo, PerfilAcesso, Produto } from "../../api/types";
+import { gerarCodigoInterno } from "../../utils/codigo";
 
 export default function PerfisTab() {
   const [perfis, setPerfis] = useState<PerfilAcesso[]>([]);
@@ -83,13 +84,14 @@ function NovoPerfilModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [escopo, setEscopo] = useState("ambos");
   const [selectedModulos, setSelectedModulos] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const codigo = gerarCodigoInterno(nome);
 
   function toggleModulo(id: string) {
     setSelectedModulos((prev) => {
@@ -101,15 +103,15 @@ function NovoPerfilModal({
   }
 
   async function handleSave() {
-    if (!codigo.trim() || !nome.trim()) {
-      setError("Informe ao menos código e nome.");
+    if (!nome.trim()) {
+      setError("Informe o nome do perfil.");
       return;
     }
     setSaving(true);
     setError(null);
     try {
       await licensingApi.createPerfilAcesso({
-        codigo: codigo.trim().toUpperCase().replace(/\s+/g, "_"),
+        codigo,
         nome: nome.trim(),
         descricao: descricao.trim() || null,
         escopo,
@@ -138,11 +140,13 @@ function NovoPerfilModal({
         </>
       }
     >
-      <Field label="Código">
-        <input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Ex.: SUPERVISOR" />
-      </Field>
       <Field label="Nome do perfil">
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Supervisor" />
+      </Field>
+      <Field label="Código interno" hint="Gerado automaticamente a partir do nome — controle interno do produto, não pode ser alterado.">
+        <div className="mono" style={{ padding: "0.55rem 0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text-secondary)", fontSize: "0.92rem" }}>
+          {codigo || "—"}
+        </div>
       </Field>
       <Field label="Descrição">
         <input value={descricao} onChange={(e) => setDescricao(e.target.value)} />

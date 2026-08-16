@@ -6,6 +6,7 @@ import { licensingApi } from "../../api/licensing";
 import type { Licenca, Modulo, Produto } from "../../api/types";
 import AtivacoesTab from "../../components/produto/AtivacoesTab";
 import ModulosTab from "../../components/produto/ModulosTab";
+import { gerarCodigoInterno } from "../../utils/codigo";
 
 export default function ProdutosTab() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -194,7 +195,6 @@ function ProdutoModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [codigo, setCodigo] = useState(produto?.codigo ?? "");
   const [nome, setNome] = useState(produto?.nome ?? "");
   const [categoria, setCategoria] = useState(produto?.categoria ?? "");
   const [escopo, setEscopo] = useState<"por_cnpj" | "por_cliente">(produto?.escopo_licenca ?? "por_cnpj");
@@ -203,9 +203,11 @@ function ProdutoModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const codigo = produto?.codigo ?? gerarCodigoInterno(nome);
+
   async function handleSave() {
-    if ((!produto && !codigo.trim()) || !nome.trim()) {
-      setError("Informe ao menos código e nome.");
+    if (!nome.trim()) {
+      setError("Informe o nome do produto.");
       return;
     }
     setSaving(true);
@@ -220,7 +222,7 @@ function ProdutoModal({
         });
       } else {
         await licensingApi.createProduto({
-          codigo: codigo.trim().toUpperCase().replace(/\s+/g, "_"),
+          codigo,
           nome: nome.trim(),
           categoria: categoria.trim() || null,
           escopo_licenca: escopo,
@@ -251,13 +253,13 @@ function ProdutoModal({
         </>
       }
     >
-      {!produto && (
-        <Field label="Código">
-          <input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Ex.: CONSULTORIA_TRIBUTARIA" />
-        </Field>
-      )}
       <Field label="Nome do produto">
         <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Consultoria Tributária" />
+      </Field>
+      <Field label="Código interno" hint="Gerado automaticamente a partir do nome — controle interno do produto, não pode ser alterado.">
+        <div className="mono" style={{ padding: "0.55rem 0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text-secondary)", fontSize: "0.92rem" }}>
+          {codigo || "—"}
+        </div>
       </Field>
       <FieldRow>
         <Field label="Categoria">

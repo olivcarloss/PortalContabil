@@ -3,6 +3,7 @@ import Modal, { Field } from "../ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Modulo, Produto } from "../../api/types";
 import { centavosToReais, formatCurrency, reaisToCentavos } from "../../utils/masks";
+import { gerarCodigoInterno } from "../../utils/codigo";
 
 export default function ModulosTab({
   produto,
@@ -319,7 +320,6 @@ function ModuloFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [codigo, setCodigo] = useState(modulo?.codigo ?? "");
   const [nome, setNome] = useState(modulo?.nome ?? "");
   const [descricao, setDescricao] = useState(modulo?.descricao ?? "");
   const [valor, setValor] = useState(reaisToCentavos(modulo?.valor_execucao ?? 0));
@@ -327,9 +327,11 @@ function ModuloFormModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const codigo = modulo?.codigo ?? gerarCodigoInterno(nome);
+
   async function handleSave() {
-    if ((!modulo && !codigo.trim()) || !nome.trim()) {
-      setError("Informe ao menos código e nome.");
+    if (!nome.trim()) {
+      setError("Informe o nome do módulo.");
       return;
     }
     setSaving(true);
@@ -343,7 +345,7 @@ function ModuloFormModal({
         });
       } else {
         await licensingApi.createModulo(produtoId, {
-          codigo: codigo.trim().toUpperCase().replace(/\s+/g, "_"),
+          codigo,
           nome: nome.trim(),
           descricao: descricao.trim() || null,
           valor_execucao: centavosToReais(valor),
@@ -372,13 +374,13 @@ function ModuloFormModal({
         </>
       }
     >
-      {!modulo && (
-        <Field label="Código">
-          <input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Ex.: RELATORIO_GERENCIAL" />
-        </Field>
-      )}
       <Field label="Nome do módulo">
         <input value={nome} onChange={(e) => setNome(e.target.value)} />
+      </Field>
+      <Field label="Código interno" hint="Gerado automaticamente a partir do nome — controle interno do produto, não pode ser alterado.">
+        <div className="mono" style={{ padding: "0.55rem 0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)", background: "var(--color-surface-alt)", color: "var(--color-text-secondary)", fontSize: "0.92rem" }}>
+          {codigo || "—"}
+        </div>
       </Field>
       <Field label="Descrição">
         <textarea value={descricao ?? ""} onChange={(e) => setDescricao(e.target.value)} rows={3} />
