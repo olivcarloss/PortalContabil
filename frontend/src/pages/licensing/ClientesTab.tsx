@@ -10,6 +10,8 @@ export default function ClientesTab() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [cnpjCountByCliente, setCnpjCountByCliente] = useState<Record<string, number>>({});
   const [licCountByCliente, setLicCountByCliente] = useState<Record<string, number>>({});
+  const [licAtivasCountByCliente, setLicAtivasCountByCliente] = useState<Record<string, number>>({});
+  const [mrrByCliente, setMrrByCliente] = useState<Record<string, number>>({});
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
   const [cnpjs, setCnpjs] = useState<Cnpj[]>([]);
   const [licencas, setLicencas] = useState<Licenca[]>([]);
@@ -29,9 +31,24 @@ export default function ClientesTab() {
         );
         setCnpjCountByCliente(Object.fromEntries(cnpjEntries));
         const licEntries = await Promise.all(
-          cs.map(async (c) => [c.id, (await licensingApi.listLicencas({ clienteId: c.id })).length] as const)
+          cs.map(async (c) => [c.id, await licensingApi.listLicencas({ clienteId: c.id })] as const)
         );
-        setLicCountByCliente(Object.fromEntries(licEntries));
+        setLicCountByCliente(Object.fromEntries(licEntries.map(([id, lics]) => [id, lics.length])));
+        setLicAtivasCountByCliente(
+          Object.fromEntries(
+            licEntries.map(([id, lics]) => [id, lics.filter((l) => l.status === "ativa").length])
+          )
+        );
+        setMrrByCliente(
+          Object.fromEntries(
+            licEntries.map(([id, lics]) => [
+              id,
+              lics
+                .filter((l) => l.status === "ativa" && l.periodicidade === "mensal")
+                .reduce((sum, l) => sum + l.valor_total, 0),
+            ])
+          )
+        );
       })
       .catch((e) => setError(e.message));
   }
@@ -79,16 +96,28 @@ export default function ClientesTab() {
         </button>
       </div>
 
-      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+      <div className="stat-grid">
         <StatCard
-          eyebrow="Escritórios ativos"
-          value={String(clientes.filter((c) => c.ativo).length)}
-          delta={`de ${clientes.length} cadastrados`}
+          eyebrow="Escritórios"
+          value={String(clientes.length)}
+          delta={`${clientes.filter((c) => c.ativo).length} ativos`}
         />
         <StatCard
           eyebrow="CNPJs cadastrados"
           value={String(Object.values(cnpjCountByCliente).reduce((sum, n) => sum + n, 0))}
           delta="clientes atendidos, todos os escritórios"
+        />
+        <StatCard
+          eyebrow="Licenças ativas"
+          value={String(Object.values(licAtivasCountByCliente).reduce((sum, n) => sum + n, 0))}
+          delta="em todos os escritórios"
+        />
+        <StatCard
+          eyebrow="Receita recorrente mensal"
+          value={Object.values(mrrByCliente)
+            .reduce((sum, n) => sum + n, 0)
+            .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          delta="licenças mensais ativas, todos os escritórios"
         />
       </div>
 
@@ -102,6 +131,7 @@ export default function ClientesTab() {
               <th>E-mail</th>
               <th>CNPJs</th>
               <th>Licenças</th>
+              <th>Recorrência</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -113,6 +143,12 @@ export default function ClientesTab() {
                 <td>{c.email_contato ?? "—"}</td>
                 <td>{cnpjCountByCliente[c.id] ?? "…"}</td>
                 <td>{licCountByCliente[c.id] ?? "…"}</td>
+                <td>
+                  {(mrrByCliente[c.id] ?? 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </td>
                 <td>
                   <span className={`badge badge-${c.ativo ? "ativa" : "cancelada"}`}>
                     {c.ativo ? "Ativo" : "Inativo"}
@@ -135,7 +171,7 @@ export default function ClientesTab() {
             ))}
             {clientes.length === 0 && (
               <tr>
-                <td colSpan={6} className="empty-state">
+                <td colSpan={7} className="empty-state">
                   Nenhum escritório cadastrado.
                 </td>
               </tr>
