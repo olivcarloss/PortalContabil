@@ -88,6 +88,23 @@ export interface ConciliacaoSintetico {
   qtd_lancamentos: number | null;
 }
 
+export interface MeuProdutoLicenciado {
+  licenca_id: string;
+  produto_id: string;
+  produto_nome: string;
+  produto_codigo: string;
+  categoria: string | null;
+  status: string;
+  periodicidade: string;
+  data_inicio: string;
+  data_fim: string | null;
+  valor_total: number;
+  cnpj_id: string | null;
+  cnpj: string | null;
+  razao_social: string | null;
+  nome_fantasia: string | null;
+}
+
 export interface OverviewProduto {
   produto_id: string;
   produto_nome: string;

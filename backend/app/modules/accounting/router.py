@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
 from app.modules.accounting.access import get_modulos_liberados, require_cnpjs_liberados
-from app.schemas.accounting import ConciliacaoSintetico, LancamentoAnalitico
+from app.modules.licensing.renovacao import renovar_licencas_vencidas
+from app.schemas.accounting import ConciliacaoSintetico, LancamentoAnalitico, MeuProdutoLicenciado
 
 router = APIRouter(prefix="/accounting", tags=["accounting"])
 
@@ -14,6 +15,37 @@ router = APIRouter(prefix="/accounting", tags=["accounting"])
 def meus_modulos(user: CurrentUser = Depends(get_current_user)):
     with get_conn() as conn:
         return get_modulos_liberados(conn, user.id)
+
+
+@router.get("/meus-produtos", response_model=list[MeuProdutoLicenciado])
+def meus_produtos(user: CurrentUser = Depends(get_current_user)):
+    """Todos os produtos com licenca vinculada ao usuario logado, com o(s)
+    CNPJ(s) a que cada licenca se aplica — um CNPJ diretamente (produto
+    'por_cnpj') ou todos os CNPJs ativos do escritorio (produto 'por_cliente')."""
+    with get_conn() as conn:
+        renovar_licencas_vencidas(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select
+                    l.id as licenca_id,
+                    p.id as produto_id, p.nome as produto_nome, p.codigo as produto_codigo,
+                    p.categoria,
+                    l.status, l.periodicidade, l.data_inicio, l.data_fim, l.valor_total,
+                    c.id as cnpj_id, c.cnpj, c.razao_social, c.nome_fantasia
+                from usuario_licencas ul
+                join licencas l on l.id = ul.licenca_id
+                join produtos p on p.id = l.produto_id
+                left join cnpjs c on (
+                    (p.escopo_licenca = 'por_cnpj' and c.id = l.cnpj_id)
+                    or (p.escopo_licenca = 'por_cliente' and c.cliente_id = l.cliente_id and c.ativo)
+                )
+                where ul.usuario_id = %s
+                order by p.nome, c.razao_social;
+                """,
+                (user.id,),
+            )
+            return cur.fetchall()
 
 
 @router.get("/conciliacoes", response_model=list[ConciliacaoSintetico])

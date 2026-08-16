@@ -79,6 +79,23 @@ class Overview(BaseModel):
     status_por_produto: list[OverviewProdutoStatus]
 
 
+class MeuProdutoLicenciado(BaseModel):
+    licenca_id: UUID
+    produto_id: UUID
+    produto_nome: str
+    produto_codigo: str
+    categoria: str | None = None
+    status: str
+    periodicidade: str
+    data_inicio: date
+    data_fim: date | None = None
+    valor_total: float
+    cnpj_id: UUID | None = None
+    cnpj: str | None = None
+    razao_social: str | None = None
+    nome_fantasia: str | None = None
+
+
 class LancamentoAnalitico(BaseModel):
     lancamento_id: UUID
     cliente_id: UUID
