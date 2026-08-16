@@ -3,6 +3,7 @@ from uuid import UUID
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core import supabase_admin
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
 from app.schemas.licensing import (
@@ -22,10 +23,10 @@ from app.schemas.licensing import (
     Produto,
     ProdutoCreate,
     ProdutoUpdate,
+    UsuarioConviteCreate,
     UsuarioLicenca,
     UsuarioLicencaCreate,
     UsuarioPortal,
-    UsuarioPortalCreate,
 )
 
 router = APIRouter(prefix="/licensing", tags=["licensing"])
@@ -396,27 +397,63 @@ def update_licenca(
 # ============================================================
 # Usuarios do portal
 # ============================================================
-@router.post("/usuarios", response_model=UsuarioPortal, status_code=status.HTTP_201_CREATED)
-def create_usuario(payload: UsuarioPortalCreate, _: CurrentUser = Depends(get_current_user)):
+def _with_convite_status(rows: list[dict]) -> list[dict]:
+    if not rows:
+        return rows
+    status_by_id = supabase_admin.get_users_status([str(r["id"]) for r in rows])
+    for row in rows:
+        row["convite_status"] = status_by_id.get(str(row["id"]), "pendente")
+    return rows
+
+
+@router.post(
+    "/usuarios/convite", response_model=UsuarioPortal, status_code=status.HTTP_201_CREATED
+)
+def convidar_usuario(payload: UsuarioConviteCreate, _: CurrentUser = Depends(get_current_user)):
+    try:
+        auth_user_id, _is_new = supabase_admin.invite_user(payload.email, payload.nome)
+    except supabase_admin.SupabaseAdminError as exc:
+        raise HTTPException(status_code=502, detail=exc.message) from exc
+
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            insert into usuarios_portal (id, cliente_id, nome, cargo, ativo)
-            values (%(id)s, %(cliente_id)s, %(nome)s, %(cargo)s, %(ativo)s)
+            insert into usuarios_portal (id, cliente_id, nome, ativo)
+            values (%(id)s, %(cliente_id)s, %(nome)s, true)
+            on conflict (id) do nothing
             returning *;
             """,
-            payload.model_dump(),
+            {"id": auth_user_id, "cliente_id": str(payload.cliente_id), "nome": payload.nome},
         )
-        row = cur.fetchone()
+        usuario = cur.fetchone()
+        if usuario is None:
+            cur.execute("select * from usuarios_portal where id = %s;", (auth_user_id,))
+            usuario = cur.fetchone()
+
+        cur.execute(
+            "select id from licencas where cliente_id = %s and status = 'ativa';",
+            (str(payload.cliente_id),),
+        )
+        for licenca in cur.fetchall():
+            cur.execute(
+                """
+                insert into usuario_licencas (usuario_id, licenca_id, perfil_acesso_id)
+                values (%s, %s, %s)
+                on conflict do nothing;
+                """,
+                (auth_user_id, licenca["id"], str(payload.perfil_acesso_id)),
+            )
+
         conn.commit()
-        return row
+        usuario["convite_status"] = supabase_admin.get_users_status([auth_user_id])[auth_user_id]
+        return usuario
 
 
 @router.get("/usuarios", response_model=list[UsuarioPortal])
 def list_todos_usuarios(_: CurrentUser = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("select * from usuarios_portal order by nome;")
-        return cur.fetchall()
+        return _with_convite_status(cur.fetchall())
 
 
 @router.get("/usuarios/{cliente_id}", response_model=list[UsuarioPortal])
@@ -426,7 +463,7 @@ def list_usuarios(cliente_id: UUID, _: CurrentUser = Depends(get_current_user)):
             "select * from usuarios_portal where cliente_id = %s order by nome;",
             (cliente_id,),
         )
-        return cur.fetchall()
+        return _with_convite_status(cur.fetchall())
 
 
 @router.post(
