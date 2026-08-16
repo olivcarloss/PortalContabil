@@ -66,16 +66,10 @@ export const licensingApi = {
   listMinhasLicencas: () => api.get<Licenca[]>("/licensing/me/licencas"),
 
   listTodosUsuarios: () => api.get<UsuarioPortal[]>("/licensing/usuarios"),
-  createUsuario: (payload: {
-    id: string;
-    cliente_id: string;
+  convidarUsuario: (payload: {
     nome: string;
-    cargo?: string | null;
-    ativo: boolean;
-  }) => api.post<UsuarioPortal>("/licensing/usuarios", payload),
-  createUsuarioLicenca: (payload: {
-    usuario_id: string;
-    licenca_id: string;
+    email: string;
+    cliente_id: string;
     perfil_acesso_id: string;
-  }) => api.post("/licensing/usuario-licencas", payload),
+  }) => api.post<UsuarioPortal>("/licensing/usuarios/convite", payload),
 };

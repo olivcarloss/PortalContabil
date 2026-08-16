@@ -37,7 +37,7 @@ export default function UsuariosTab() {
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          + Novo usuário
+          + Convidar usuário
         </button>
       </div>
 
@@ -49,6 +49,7 @@ export default function UsuariosTab() {
             <tr>
               <th>Usuário</th>
               <th>Escritório</th>
+              <th>Convite</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -63,6 +64,11 @@ export default function UsuariosTab() {
                 </td>
                 <td>{clientes.find((c) => c.id === u.cliente_id)?.nome ?? "—"}</td>
                 <td>
+                  <span className={`badge badge-${u.convite_status === "ativo" ? "ativa" : "cancelada"}`}>
+                    {u.convite_status === "ativo" ? "Ativo" : "Convite pendente"}
+                  </span>
+                </td>
+                <td>
                   <span className={`badge badge-${u.ativo ? "ativa" : "cancelada"}`}>
                     {u.ativo ? "Ativo" : "Inativo"}
                   </span>
@@ -71,7 +77,7 @@ export default function UsuariosTab() {
             ))}
             {usuarios.length === 0 && (
               <tr>
-                <td colSpan={3} className="empty-state">
+                <td colSpan={4} className="empty-state">
                   Nenhum usuário cadastrado.
                 </td>
               </tr>
@@ -106,44 +112,27 @@ function NovoUsuarioModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [authUserId, setAuthUserId] = useState("");
   const [nome, setNome] = useState("");
-  const [cargo, setCargo] = useState("");
+  const [email, setEmail] = useState("");
   const [clienteId, setClienteId] = useState(clientes[0]?.id ?? "");
   const [perfilId, setPerfilId] = useState(perfis[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
-    if (!authUserId.trim() || !nome.trim() || !clienteId) {
-      setError("Informe ao menos o ID do usuário, nome e escritório.");
+    if (!nome.trim() || !email.trim() || !clienteId || !perfilId) {
+      setError("Informe nome, e-mail, escritório e perfil de acesso.");
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      await licensingApi.createUsuario({
-        id: authUserId.trim(),
-        cliente_id: clienteId,
+      await licensingApi.convidarUsuario({
         nome: nome.trim(),
-        cargo: cargo.trim() || null,
-        ativo: true,
+        email: email.trim(),
+        cliente_id: clienteId,
+        perfil_acesso_id: perfilId,
       });
-
-      if (perfilId) {
-        const licencasDoCliente = await licensingApi.listLicencas({ clienteId });
-        const ativas = licencasDoCliente.filter((l) => l.status === "ativa");
-        await Promise.all(
-          ativas.map((l) =>
-            licensingApi.createUsuarioLicenca({
-              usuario_id: authUserId.trim(),
-              licenca_id: l.id,
-              perfil_acesso_id: perfilId,
-            })
-          )
-        );
-      }
-
       onCreated();
     } catch (e) {
       setError((e as Error).message);
@@ -154,7 +143,7 @@ function NovoUsuarioModal({
 
   return (
     <Modal
-      title="Novo usuário"
+      title="Convidar usuário"
       onClose={onClose}
       footer={
         <>
@@ -162,19 +151,19 @@ function NovoUsuarioModal({
             Cancelar
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Salvando..." : "Salvar usuário"}
+            {saving ? "Enviando..." : "Enviar convite"}
           </button>
         </>
       }
     >
-      <Field
-        label="ID do usuário (Supabase Auth)"
-        hint="A pessoa precisa já ter uma conta em Authentication → Users no Supabase. Copie o UUID dela ali."
-      >
-        <input value={authUserId} onChange={(e) => setAuthUserId(e.target.value)} placeholder="00000000-0000-0000-0000-000000000000" />
-      </Field>
       <Field label="Nome completo">
         <input value={nome} onChange={(e) => setNome(e.target.value)} />
+      </Field>
+      <Field
+        label="E-mail"
+        hint="A pessoa recebe um e-mail de convite para definir a própria senha."
+      >
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@escritorio.com.br" />
       </Field>
       <FieldRow>
         <Field label="Escritório">
@@ -186,23 +175,19 @@ function NovoUsuarioModal({
             ))}
           </select>
         </Field>
-        <Field label="Cargo">
-          <input value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Ex.: Contador" />
+        <Field
+          label="Perfil de acesso"
+          hint="Concede esse perfil em todas as licenças ativas do escritório."
+        >
+          <select value={perfilId} onChange={(e) => setPerfilId(e.target.value)}>
+            {perfis.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome}
+              </option>
+            ))}
+          </select>
         </Field>
       </FieldRow>
-      <Field
-        label="Perfil de acesso"
-        hint="Concede esse perfil em todas as licenças ativas do escritório selecionado."
-      >
-        <select value={perfilId} onChange={(e) => setPerfilId(e.target.value)}>
-          <option value="">Nenhum (cadastrar sem acesso a licenças)</option>
-          {perfis.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nome}
-            </option>
-          ))}
-        </select>
-      </Field>
       {error && <p style={{ color: "var(--color-danger)", fontSize: "0.85rem" }}>{error}</p>}
     </Modal>
   );

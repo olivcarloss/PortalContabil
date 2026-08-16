@@ -50,6 +50,7 @@ export interface UsuarioPortal {
   nome: string;
   cargo: string | null;
   ativo: boolean;
+  convite_status: "pendente" | "ativo";
 }
 
 export interface Licenca {
