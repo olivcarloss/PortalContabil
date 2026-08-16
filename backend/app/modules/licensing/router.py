@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
+from app.modules.licensing.renovacao import renovar_licencas_vencidas
 from app.schemas.licensing import (
     Cliente,
     ClienteCreate,
@@ -311,17 +312,19 @@ def list_licencas(
         params["produto_id"] = str(produto_id)
     where_clause = f"where {' and '.join(filters)}" if filters else ""
 
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(
-            "select l.*, coalesce(lm.modulo_ids, '{}') as modulo_ids "
-            "from licencas l "
-            "left join lateral ("
-            "  select array_agg(modulo_id) as modulo_ids from licenca_modulos where licenca_id = l.id"
-            f") lm on true {where_clause} "
-            "order by l.criado_em desc;",
-            params,
-        )
-        return cur.fetchall()
+    with get_conn() as conn:
+        renovar_licencas_vencidas(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                "select l.*, coalesce(lm.modulo_ids, '{}') as modulo_ids "
+                "from licencas l "
+                "left join lateral ("
+                "  select array_agg(modulo_id) as modulo_ids from licenca_modulos where licenca_id = l.id"
+                f") lm on true {where_clause} "
+                "order by l.criado_em desc;",
+                params,
+            )
+            return cur.fetchall()
 
 
 @router.post("/licencas", response_model=Licenca, status_code=status.HTTP_201_CREATED)

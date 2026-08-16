@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_admin, get_current_user
+from app.modules.licensing.renovacao import renovar_licencas_vencidas
 from app.schemas.accounting import (
     ConciliacaoSintetico,
     LancamentoAnalitico,
@@ -40,6 +41,8 @@ def me(user: CurrentUser = Depends(get_current_user)):
 @router.get("/overview", response_model=Overview)
 def overview(_: CurrentUser = Depends(get_current_admin)):
     with get_conn() as conn, conn.cursor() as cur:
+        renovar_licencas_vencidas(conn)
+
         cur.execute("select count(*) as n, count(*) filter (where ativo) as ativos from clientes;")
         clientes_row = cur.fetchone()
 

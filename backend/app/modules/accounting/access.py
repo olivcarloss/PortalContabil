@@ -3,12 +3,15 @@
 """
 from fastapi import HTTPException, status
 
+from app.modules.licensing.renovacao import renovar_licencas_vencidas
+
 CONCILIACAO_PRODUTO_CODIGO = "CONCILIACAO_CONTABIL"
 
 
 def get_cnpjs_liberados(conn, usuario_id: str) -> list[str]:
     """Retorna a lista de cnpj_id (como str) para os quais o usuario tem
     uma licenca ativa do produto de Conciliacao Contabil."""
+    renovar_licencas_vencidas(conn)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -41,6 +44,7 @@ def get_modulos_liberados(conn, usuario_id: str) -> list[str]:
     liberados para o usuario, considerando todas as suas licencas ativas de
     Conciliacao Contabil. Um modulo aparece liberado se estiver habilitado em
     QUALQUER uma das licencas ativas do usuario para o produto."""
+    renovar_licencas_vencidas(conn)
     with conn.cursor() as cur:
         cur.execute(
             """
