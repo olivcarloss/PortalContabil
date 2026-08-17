@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "./supabaseClient";
 import { adminApi, type MeProfile } from "../api/admin";
+import { translateAuthError } from "./authErrors";
 
 interface AuthContextValue {
   session: Session | null;
@@ -48,13 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(email: string, password: string) {
     if (!isSupabaseConfigured) {
-      return { error: "Supabase ainda não configurado (VITE_SUPABASE_ANON_KEY ausente em frontend/.env)." };
+      return { error: "Login ainda não configurado. Fale com o administrador do sistema." };
     }
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
+      return { error: error ? translateAuthError(error.message) : null };
     } catch {
-      return { error: "Não foi possível conectar ao Supabase. Verifique a configuração." };
+      return { error: "Não foi possível conectar. Tente novamente em instantes." };
     }
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../auth/supabaseClient";
+import { translateAuthError } from "../auth/authErrors";
 
 type Status = "verificando" | "pronto" | "invalido" | "salvando" | "concluido";
 
@@ -40,7 +41,7 @@ export default function AceitarConvite() {
     setError(null);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
-      setError(updateError.message);
+      setError(translateAuthError(updateError.message));
       setStatus("pronto");
       return;
     }

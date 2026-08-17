@@ -3,6 +3,7 @@ import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, PerfilAcesso, UsuarioPortal } from "../../api/types";
+import { translateAuthError } from "../../auth/authErrors";
 
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
@@ -56,7 +57,7 @@ export default function UsuariosTab() {
       await licensingApi.solicitarSenhaUsuario(usuario.id);
       alert("E-mail de redefinição de senha enviado.");
     } catch (e) {
-      setError((e as Error).message);
+      setError(translateAuthError((e as Error).message));
     } finally {
       setSendingSenhaId(null);
     }
@@ -330,7 +331,7 @@ function NovoUsuarioModal({
       });
       onCreated();
     } catch (e) {
-      setError((e as Error).message);
+      setError(translateAuthError((e as Error).message));
     } finally {
       setSaving(false);
     }

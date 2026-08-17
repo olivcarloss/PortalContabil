@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../auth/supabaseClient";
+import { translateAuthError } from "../auth/authErrors";
 
 export default function EsqueciSenha() {
   const [email, setEmail] = useState("");
@@ -17,7 +18,7 @@ export default function EsqueciSenha() {
     });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(translateAuthError(error.message));
       return;
     }
     setEnviado(true);
