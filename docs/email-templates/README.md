@@ -28,3 +28,9 @@ O link de convite redireciona para `/aceitar-convite` usando a URL configurada e
 só funciona quando aberto na mesma máquina rodando o `npm run dev` do frontend. Para convites
 funcionarem para qualquer destinatário remoto, é necessário publicar o frontend (Vercel, etc.) e
 atualizar `FRONTEND_ORIGIN` para a URL pública.
+
+## usando Git-Hub
+Um projeto de contabilidade
+
+### Install
+$ pip install -r requirimentsgit.txt

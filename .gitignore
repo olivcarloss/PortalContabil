@@ -9,3 +9,4 @@ dist/
 .DS_Store
 frontend/dist/
 *.tsbuildinfo
+README.md
