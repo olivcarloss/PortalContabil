@@ -156,6 +156,7 @@ class Licenca(LicencaBase):
     criado_em: datetime
     atualizado_em: datetime
     ultima_renovacao_em: datetime | None = None
+    tem_movimentacao: bool = False
 
 
 class LicencaUpdate(BaseModel):

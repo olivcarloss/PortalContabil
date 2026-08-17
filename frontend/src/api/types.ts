@@ -72,6 +72,7 @@ export interface Licenca {
   observacoes: string | null;
   modulo_ids: string[];
   ultima_renovacao_em: string | null;
+  tem_movimentacao: boolean;
 }
 
 export interface ConciliacaoSintetico {

@@ -5,7 +5,7 @@ import type { Cliente, Cnpj, Licenca, Produto, UsuarioPortal } from "../../api/t
 const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const STATUS_LABEL: Record<string, string> = {
-  ativa: "Ativa",
+  ativa: "Ativada",
   suspensa: "Suspensa",
   cancelada: "Cancelada",
 };

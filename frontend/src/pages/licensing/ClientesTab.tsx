@@ -5,6 +5,12 @@ import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
 import { formatCnpj, formatTelefone, normalizeTelefoneDigits, onlyDigits } from "../../utils/masks";
 
+const STATUS_LABEL: Record<string, string> = {
+  ativa: "Ativada",
+  suspensa: "Suspensa",
+  cancelada: "Cancelada",
+};
+
 export default function ClientesTab() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -315,7 +321,7 @@ export default function ClientesTab() {
                   <td>{l.qtd_licencas}</td>
                   <td>{l.valor_total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
                   <td>
-                    <span className={`badge badge-${l.status}`}>{l.status}</span>
+                    <span className={`badge badge-${l.status}`}>{STATUS_LABEL[l.status] ?? l.status}</span>
                   </td>
                 </tr>
               ))}

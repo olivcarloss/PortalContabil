@@ -9,7 +9,7 @@ const MESES = [
 ];
 
 const STATUS_LABEL: Record<string, string> = {
-  ativa: "Ativa",
+  ativa: "Ativada",
   suspensa: "Suspensa",
   cancelada: "Cancelada",
 };

@@ -108,9 +108,11 @@ export default function AtivacoesTab({
                       onChange={(e) => handleStatusChange(row.licenca as Licenca, e.target.value)}
                       style={{ width: "auto" }}
                     >
-                      <option value="ativa">Ativa</option>
+                      <option value="ativa">Ativada</option>
                       <option value="suspensa">Suspensa</option>
-                      <option value="cancelada">Cancelada</option>
+                      <option value="cancelada">
+                        {row.licenca.tem_movimentacao ? "Cancelada" : "Não ativado"}
+                      </option>
                     </select>
                   ) : (
                     <span className="badge badge-neutral">Não ativado</span>

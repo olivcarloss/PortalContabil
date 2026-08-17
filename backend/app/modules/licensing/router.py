@@ -481,7 +481,12 @@ def list_licencas(
         renovar_licencas_vencidas(conn)
         with conn.cursor() as cur:
             cur.execute(
-                "select l.*, coalesce(lm.modulo_ids, '{}') as modulo_ids "
+                "select l.*, coalesce(lm.modulo_ids, '{}') as modulo_ids, "
+                "exists ("
+                "  select 1 from conciliacoes co join cnpjs cn on cn.id = co.cnpj_id "
+                "  where (l.cnpj_id is not null and co.cnpj_id = l.cnpj_id) "
+                "     or (l.cnpj_id is null and cn.cliente_id = l.cliente_id)"
+                ") as tem_movimentacao "
                 "from licencas l "
                 "left join lateral ("
                 "  select array_agg(modulo_id) as modulo_ids from licenca_modulos where licenca_id = l.id"
