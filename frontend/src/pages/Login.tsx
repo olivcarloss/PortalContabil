@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { isSupabaseConfigured } from "../auth/supabaseClient";
 
@@ -72,7 +72,7 @@ export default function Login() {
           />
         </label>
 
-        <label style={{ display: "block", marginBottom: "1.2rem" }}>
+        <label style={{ display: "block", marginBottom: "0.5rem" }}>
           <span style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.3rem" }}>
             Senha
           </span>
@@ -83,6 +83,13 @@ export default function Login() {
             required
           />
         </label>
+
+        <Link
+          to="/esqueci-minha-senha"
+          style={{ display: "block", fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: "1.2rem" }}
+        >
+          Esqueci minha senha
+        </Link>
 
         {error && (
           <p style={{ color: "var(--color-danger)", fontSize: "0.85rem" }}>{error}</p>

@@ -4,6 +4,8 @@ import RequireAuth from "./components/RequireAuth";
 import Shell from "./components/Shell";
 import Login from "./pages/Login";
 import AceitarConvite from "./pages/AceitarConvite";
+import EsqueciSenha from "./pages/EsqueciSenha";
+import RedefinirSenha from "./pages/RedefinirSenha";
 import RodriSaasLanding from "./pages/marketing/RodriSaasLanding";
 import OverviewTab from "./pages/licensing/OverviewTab";
 import ProdutosTab from "./pages/licensing/ProdutosTab";
@@ -20,6 +22,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/aceitar-convite" element={<AceitarConvite />} />
+        <Route path="/esqueci-minha-senha" element={<EsqueciSenha />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="/rodrisaas" element={<RodriSaasLanding />} />
         <Route
           element={

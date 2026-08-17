@@ -745,6 +745,21 @@ def update_usuario(
         return row
 
 
+@router.post("/usuarios/{usuario_id}/solicitar-senha", status_code=status.HTTP_200_OK)
+def solicitar_senha_usuario(usuario_id: UUID, _: CurrentUser = Depends(get_current_user)):
+    """Envia o e-mail de redefinicao de senha do Supabase para o usuario —
+    o admin nunca ve/define a senha diretamente, apenas aciona o envio."""
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("select id from usuarios_portal where id = %s;", (usuario_id,))
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+    try:
+        supabase_admin.send_password_reset(str(usuario_id))
+    except supabase_admin.SupabaseAdminError as e:
+        raise HTTPException(status_code=502, detail=e.message) from e
+    return {"enviado": True}
+
+
 @router.delete("/usuarios/{usuario_id}", status_code=status.HTTP_200_OK)
 def delete_usuario(usuario_id: UUID, _: CurrentUser = Depends(get_current_user)):
     """Revoga o acesso do usuario ao portal (inativa) sem apagar a conta de

@@ -15,6 +15,7 @@ export default function UsuariosTab() {
   const [showForm, setShowForm] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<UsuarioPortal | null>(null);
   const [expandedUsuarioId, setExpandedUsuarioId] = useState<string | null>(null);
+  const [sendingSenhaId, setSendingSenhaId] = useState<string | null>(null);
 
   function refresh() {
     Promise.all([
@@ -44,6 +45,20 @@ export default function UsuariosTab() {
       refresh();
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+
+  async function handleSolicitarSenha(usuario: UsuarioPortal) {
+    if (!confirm(`Enviar e-mail de redefinição de senha para "${usuario.nome}"?`)) return;
+    setSendingSenhaId(usuario.id);
+    setError(null);
+    try {
+      await licensingApi.solicitarSenhaUsuario(usuario.id);
+      alert("E-mail de redefinição de senha enviado.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSendingSenhaId(null);
     }
   }
 
@@ -124,6 +139,14 @@ export default function UsuariosTab() {
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+                        <button
+                          className="icon-btn"
+                          title="Solicitar nova senha"
+                          onClick={() => handleSolicitarSenha(u)}
+                          disabled={sendingSenhaId === u.id}
+                        >
+                          🔑
+                        </button>
                         <button className="icon-btn" title="Editar" onClick={() => setEditingUsuario(u)}>
                           ✎
                         </button>

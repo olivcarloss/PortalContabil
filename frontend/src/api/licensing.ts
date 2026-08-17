@@ -97,4 +97,6 @@ export const licensingApi = {
   ) => api.patch<UsuarioPortal>(`/licensing/usuarios/${usuarioId}`, payload),
   deleteUsuario: (usuarioId: string) =>
     api.delete<{ deleted: boolean; inativado: boolean }>(`/licensing/usuarios/${usuarioId}`),
+  solicitarSenhaUsuario: (usuarioId: string) =>
+    api.post<{ enviado: boolean }>(`/licensing/usuarios/${usuarioId}/solicitar-senha`, {}),
 };

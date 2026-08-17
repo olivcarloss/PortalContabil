@@ -59,6 +59,34 @@ def _find_user_id_by_email(email: str) -> str | None:
     return None
 
 
+def send_password_reset(user_id: str) -> None:
+    """Sends Supabase's built-in "Reset Password" e-mail to the user's
+    registered address, so an admin can request a password change without
+    ever seeing/handling the user's actual password."""
+    resp = httpx.get(
+        f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
+        headers=_headers(),
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise SupabaseAdminError("Usuario nao encontrado na autenticacao")
+    email = resp.json().get("email")
+    if not email:
+        raise SupabaseAdminError("Usuario nao possui e-mail cadastrado")
+
+    resp = httpx.post(
+        f"{settings.supabase_url}/auth/v1/recover",
+        headers=_headers(),
+        params={"redirect_to": f"{settings.frontend_origin}/redefinir-senha"},
+        json={"email": email},
+        timeout=10,
+    )
+    if resp.status_code not in (200, 204):
+        body = resp.json() if resp.content else {}
+        message = body.get("msg") or body.get("message") or resp.text
+        raise SupabaseAdminError(message)
+
+
 def get_users_status(ids: list[str]) -> dict[str, str]:
     """Returns {id: "pendente" | "ativo"} for each auth.users id, based on
     whether the invite has been accepted (email_confirmed_at set)."""
