@@ -74,7 +74,7 @@ export default function UsuariosTab() {
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          + Convidar usuário
+          + Novo usuário
         </button>
       </div>
 
@@ -241,12 +241,17 @@ function EditarUsuarioModal({
   const [nome, setNome] = useState(usuario.nome);
   const [cargo, setCargo] = useState(usuario.cargo ?? "");
   const [ativo, setAtivo] = useState(usuario.ativo);
+  const [novaSenha, setNovaSenha] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
     if (!nome.trim()) {
       setError("Informe o nome do usuário.");
+      return;
+    }
+    if (novaSenha && novaSenha.length < 8) {
+      setError("A nova senha precisa ter pelo menos 8 caracteres.");
       return;
     }
     setSaving(true);
@@ -256,10 +261,12 @@ function EditarUsuarioModal({
         nome: nome.trim(),
         cargo: cargo.trim() || null,
         ativo,
+        ...(novaSenha ? { senha: novaSenha } : {}),
       });
       onSaved();
     } catch (e) {
-      setError((e as Error).message);
+      const message = (e as Error).message;
+      setError(novaSenha ? translateAuthError(message) : message);
     } finally {
       setSaving(false);
     }
@@ -292,6 +299,15 @@ function EditarUsuarioModal({
           <option value="0">Inativo</option>
         </select>
       </Field>
+      <Field label="Nova senha" hint="Deixe em branco para manter a senha atual.">
+        <input
+          type="password"
+          value={novaSenha}
+          onChange={(e) => setNovaSenha(e.target.value)}
+          minLength={8}
+          placeholder="••••••••"
+        />
+      </Field>
       {error && <p style={{ color: "var(--color-danger)", fontSize: "0.85rem" }}>{error}</p>}
     </Modal>
   );
@@ -310,6 +326,7 @@ function NovoUsuarioModal({
 }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const [clienteId, setClienteId] = useState(clientes[0]?.id ?? "");
   const [perfilId, setPerfilId] = useState(perfis[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -320,12 +337,17 @@ function NovoUsuarioModal({
       setError("Informe nome, e-mail, escritório e perfil de acesso.");
       return;
     }
+    if (senha.length < 8) {
+      setError("A senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await licensingApi.convidarUsuario({
         nome: nome.trim(),
         email: email.trim(),
+        senha,
         cliente_id: clienteId,
         perfil_acesso_id: perfilId,
       });
@@ -339,7 +361,7 @@ function NovoUsuarioModal({
 
   return (
     <Modal
-      title="Convidar usuário"
+      title="Novo usuário"
       onClose={onClose}
       footer={
         <>
@@ -347,7 +369,7 @@ function NovoUsuarioModal({
             Cancelar
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Enviando..." : "Enviar convite"}
+            {saving ? "Criando..." : "Criar usuário"}
           </button>
         </>
       }
@@ -355,11 +377,17 @@ function NovoUsuarioModal({
       <Field label="Nome completo">
         <input value={nome} onChange={(e) => setNome(e.target.value)} />
       </Field>
-      <Field
-        label="E-mail"
-        hint="A pessoa recebe um e-mail de convite para definir a própria senha."
-      >
+      <Field label="E-mail">
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@escritorio.com.br" />
+      </Field>
+      <Field label="Senha de acesso" hint="A pessoa usa essa senha para entrar no portal. Pelo menos 8 caracteres.">
+        <input
+          type="password"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          minLength={8}
+          placeholder="••••••••"
+        />
       </Field>
       <FieldRow>
         <Field label="Escritório">

@@ -669,7 +669,9 @@ def _with_convite_status(rows: list[dict]) -> list[dict]:
 )
 def convidar_usuario(payload: UsuarioConviteCreate, _: CurrentUser = Depends(get_current_user)):
     try:
-        auth_user_id, _is_new = supabase_admin.invite_user(payload.email, payload.nome)
+        auth_user_id = supabase_admin.create_user_with_password(
+            payload.email, payload.nome, payload.senha
+        )
     except supabase_admin.SupabaseAdminError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
 
@@ -729,18 +731,30 @@ def update_usuario(
     usuario_id: UUID, payload: UsuarioPortalUpdate, _: CurrentUser = Depends(get_current_user)
 ):
     fields = payload.model_dump(exclude_unset=True)
-    if not fields:
+    senha = fields.pop("senha", None)
+    if not fields and senha is None:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
-    set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
-    fields["id"] = str(usuario_id)
+
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(
-            f"update usuarios_portal set {set_clause} where id = %(id)s returning *;", fields
-        )
+        if fields:
+            set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
+            fields["id"] = str(usuario_id)
+            cur.execute(
+                f"update usuarios_portal set {set_clause} where id = %(id)s returning *;", fields
+            )
+        else:
+            cur.execute("select * from usuarios_portal where id = %s;", (str(usuario_id),))
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Usuario nao encontrado")
         conn.commit()
+
+        if senha is not None:
+            try:
+                supabase_admin.set_user_password(str(usuario_id), senha)
+            except supabase_admin.SupabaseAdminError as exc:
+                raise HTTPException(status_code=502, detail=exc.message) from exc
+
         row["convite_status"] = supabase_admin.get_users_status([str(usuario_id)])[str(usuario_id)]
         return row
 

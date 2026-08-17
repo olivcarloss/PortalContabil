@@ -17,46 +17,41 @@ def _headers() -> dict[str, str]:
     }
 
 
-def invite_user(email: str, nome: str) -> tuple[str, bool]:
-    """Creates the auth.users account and triggers Supabase's invite e-mail.
-
-    Returns (auth_user_id, is_new). If the e-mail is already registered,
-    reuses the existing account instead of erroring (is_new=False).
-    """
+def create_user_with_password(email: str, nome: str, senha: str) -> str:
+    """Creates the auth.users account with the password set by the admin,
+    already confirmed (no e-mail step needed to log in). Returns the new
+    auth_user_id."""
     resp = httpx.post(
-        f"{settings.supabase_url}/auth/v1/invite",
+        f"{settings.supabase_url}/auth/v1/admin/users",
         headers=_headers(),
-        params={"redirect_to": f"{settings.frontend_origin}/aceitar-convite"},
-        json={"email": email, "data": {"nome": nome}},
+        json={
+            "email": email,
+            "password": senha,
+            "email_confirm": True,
+            "user_metadata": {"nome": nome},
+        },
         timeout=10,
     )
     if resp.status_code in (200, 201):
-        return resp.json()["id"], True
+        return resp.json()["id"]
 
     body = resp.json() if resp.content else {}
     message = body.get("msg") or body.get("message") or body.get("error_description") or resp.text
-    if resp.status_code == 422 and "already" in message.lower():
-        existing_id = _find_user_id_by_email(email)
-        if existing_id:
-            return existing_id, False
-
     raise SupabaseAdminError(message)
 
 
-def _find_user_id_by_email(email: str) -> str | None:
-    resp = httpx.get(
-        f"{settings.supabase_url}/auth/v1/admin/users",
+def set_user_password(user_id: str, senha: str) -> None:
+    """Sets a user's password directly (admin-defined, no e-mail step)."""
+    resp = httpx.put(
+        f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
         headers=_headers(),
-        params={"email": email},
+        json={"password": senha},
         timeout=10,
     )
     if resp.status_code != 200:
-        return None
-    users = resp.json().get("users", [])
-    for user in users:
-        if user.get("email", "").lower() == email.lower():
-            return user["id"]
-    return None
+        body = resp.json() if resp.content else {}
+        message = body.get("msg") or body.get("message") or body.get("error_description") or resp.text
+        raise SupabaseAdminError(message)
 
 
 def send_password_reset(user_id: str) -> None:

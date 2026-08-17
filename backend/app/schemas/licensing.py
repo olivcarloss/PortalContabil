@@ -181,6 +181,7 @@ class UsuarioPortalBase(BaseModel):
 class UsuarioConviteCreate(BaseModel):
     nome: str
     email: str
+    senha: str = Field(min_length=8)
     cliente_id: UUID
     perfil_acesso_id: UUID
 
@@ -189,6 +190,7 @@ class UsuarioPortalUpdate(BaseModel):
     nome: str | None = None
     cargo: str | None = None
     ativo: bool | None = None
+    senha: str | None = Field(default=None, min_length=8)
 
 
 class UsuarioPortal(UsuarioPortalBase):

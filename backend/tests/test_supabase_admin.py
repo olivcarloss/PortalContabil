@@ -15,37 +15,39 @@ class FakeResponse:
         return self._json_body
 
 
-def test_invite_user_success(monkeypatch):
+def test_create_user_with_password_success(monkeypatch):
     monkeypatch.setattr(
         httpx, "post", lambda *a, **k: FakeResponse(200, {"id": "user-1"})
     )
-    user_id, is_new = supabase_admin.invite_user("new@example.com", "Nova Pessoa")
-    assert (user_id, is_new) == ("user-1", True)
+    user_id = supabase_admin.create_user_with_password(
+        "new@example.com", "Nova Pessoa", "senha12345"
+    )
+    assert user_id == "user-1"
 
 
-def test_invite_user_duplicate_reuses_existing(monkeypatch):
+def test_create_user_with_password_error_raises(monkeypatch):
     monkeypatch.setattr(
         httpx,
         "post",
         lambda *a, **k: FakeResponse(422, {"msg": "Email address already registered"}),
     )
+    with pytest.raises(supabase_admin.SupabaseAdminError, match="already registered"):
+        supabase_admin.create_user_with_password("dup@example.com", "Pessoa", "senha12345")
+
+
+def test_set_user_password_success(monkeypatch):
     monkeypatch.setattr(
-        httpx,
-        "get",
-        lambda *a, **k: FakeResponse(
-            200, {"users": [{"id": "existing-1", "email": "dup@example.com"}]}
-        ),
+        httpx, "put", lambda *a, **k: FakeResponse(200, {"id": "user-1"})
     )
-    user_id, is_new = supabase_admin.invite_user("dup@example.com", "Pessoa")
-    assert (user_id, is_new) == ("existing-1", False)
+    supabase_admin.set_user_password("user-1", "novaSenha123")
 
 
-def test_invite_user_generic_error_raises(monkeypatch):
+def test_set_user_password_error_raises(monkeypatch):
     monkeypatch.setattr(
-        httpx, "post", lambda *a, **k: FakeResponse(500, {"msg": "Internal error"})
+        httpx, "put", lambda *a, **k: FakeResponse(500, {"msg": "Internal error"})
     )
     with pytest.raises(supabase_admin.SupabaseAdminError, match="Internal error"):
-        supabase_admin.invite_user("fail@example.com", "Pessoa")
+        supabase_admin.set_user_password("user-1", "novaSenha123")
 
 
 def test_get_users_status_maps_confirmed_and_pending(monkeypatch):

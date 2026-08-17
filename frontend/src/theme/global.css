@@ -72,6 +72,7 @@ button {
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   padding: 0.6rem 1.2rem;
   border-radius: var(--radius-sm);
@@ -106,17 +107,16 @@ button {
   background: var(--color-surface-alt);
 }
 
-/* Variante para uso sobre fundos escuros (ex.: barra lateral) — o
-   .btn-secondary padrao tem fundo/texto claros, invisiveis ali. */
+/* Variante para uso sobre fundos escuros (ex.: barra lateral) — mesmo
+   laranja de destaque usado no .btn-primary nas demais telas. */
 .btn-sidebar {
-  background: transparent;
+  background: var(--color-accent);
   color: white;
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: var(--color-accent);
 }
 
 .btn-sidebar:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.5);
+  opacity: 0.92;
 }
 
 .card {
