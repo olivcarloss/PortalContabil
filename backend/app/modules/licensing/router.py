@@ -7,7 +7,28 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core import supabase_admin
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
+from app.modules.licensing.menus import (
+    MENU_LICENCIAMENTO_ESCRITORIOS,
+    MENU_LICENCIAMENTO_PERFIS,
+    MENU_LICENCIAMENTO_PRODUTOS,
+    MENU_LICENCIAMENTO_USUARIOS,
+    MENU_LICENCIAMENTO_VISAO_GERAL,
+    require_menu,
+)
 from app.modules.licensing.renovacao import renovar_licencas_vencidas
+
+# Qualquer usuario com acesso a alguma tela do Portal de Licenciamento pode
+# ler catalogos de referencia (produtos, clientes, perfis, licencas) — sao
+# usados para cross-reference entre telas (ex.: Escritorios mostra nome do
+# produto de cada licenca). As MUTACOES continuam restritas ao menu
+# especifico daquele recurso.
+_QUALQUER_MENU_LICENCIAMENTO = (
+    MENU_LICENCIAMENTO_VISAO_GERAL,
+    MENU_LICENCIAMENTO_PRODUTOS,
+    MENU_LICENCIAMENTO_ESCRITORIOS,
+    MENU_LICENCIAMENTO_USUARIOS,
+    MENU_LICENCIAMENTO_PERFIS,
+)
 from app.schemas.licensing import (
     Cliente,
     ClienteCreate,
@@ -49,14 +70,16 @@ def _um_ano_apos(d: date) -> date:
 # Produtos
 # ============================================================
 @router.get("/produtos", response_model=list[Produto])
-def list_produtos(_: CurrentUser = Depends(get_current_user)):
+def list_produtos(_: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("select * from produtos order by ativo desc, nome;")
         return cur.fetchall()
 
 
 @router.post("/produtos", response_model=Produto, status_code=status.HTTP_201_CREATED)
-def create_produto(payload: ProdutoCreate, _: CurrentUser = Depends(get_current_user)):
+def create_produto(
+    payload: ProdutoCreate, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS))
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -73,7 +96,9 @@ def create_produto(payload: ProdutoCreate, _: CurrentUser = Depends(get_current_
 
 @router.patch("/produtos/{produto_id}", response_model=Produto)
 def update_produto(
-    produto_id: UUID, payload: ProdutoUpdate, _: CurrentUser = Depends(get_current_user)
+    produto_id: UUID,
+    payload: ProdutoUpdate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     if not fields:
@@ -92,7 +117,9 @@ def update_produto(
 
 
 @router.delete("/produtos/{produto_id}", status_code=status.HTTP_200_OK)
-def delete_produto(produto_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def delete_produto(
+    produto_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS))
+):
     """Tenta excluir definitivamente o produto (só é possível se nunca teve
     nenhuma licença). Se houver licenças (mesmo canceladas) referenciando o
     produto, inativa (soft delete) em vez de apagar o histórico."""
@@ -118,7 +145,9 @@ def delete_produto(produto_id: UUID, _: CurrentUser = Depends(get_current_user))
 
 
 @router.get("/produtos/{produto_id}/modulos", response_model=list[Modulo])
-def list_modulos(produto_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def list_modulos(
+    produto_id: UUID, _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "select * from modulos where produto_id = %s order by nome;", (produto_id,)
@@ -130,7 +159,9 @@ def list_modulos(produto_id: UUID, _: CurrentUser = Depends(get_current_user)):
     "/produtos/{produto_id}/modulos", response_model=Modulo, status_code=status.HTTP_201_CREATED
 )
 def create_modulo(
-    produto_id: UUID, payload: ModuloCreate, _: CurrentUser = Depends(get_current_user)
+    produto_id: UUID,
+    payload: ModuloCreate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
 ):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
@@ -148,7 +179,9 @@ def create_modulo(
 
 @router.patch("/modulos/{modulo_id}", response_model=Modulo)
 def update_modulo(
-    modulo_id: UUID, payload: ModuloUpdate, _: CurrentUser = Depends(get_current_user)
+    modulo_id: UUID,
+    payload: ModuloUpdate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     if not fields:
@@ -192,7 +225,9 @@ def update_modulo(
 
 
 @router.delete("/modulos/{modulo_id}", status_code=status.HTTP_200_OK)
-def delete_modulo(modulo_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def delete_modulo(
+    modulo_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS))
+):
     """Tenta excluir definitivamente o modulo (so possivel se nunca foi
     habilitado em nenhuma licenca/perfil). Se houver referencias, inativa
     (soft delete) em vez de apagar o historico."""
@@ -221,14 +256,18 @@ def delete_modulo(modulo_id: UUID, _: CurrentUser = Depends(get_current_user)):
 # Perfis de acesso
 # ============================================================
 @router.get("/perfis-acesso", response_model=list[PerfilAcesso])
-def list_perfis_acesso(_: CurrentUser = Depends(get_current_user)):
+def list_perfis_acesso(_: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "select p.*, coalesce(pm.modulo_ids, '{}') as modulo_ids "
+            "select p.*, coalesce(pm.modulo_ids, '{}') as modulo_ids, "
+            "coalesce(pmenu.menu_ids, '{}') as menu_ids "
             "from perfis_acesso p "
             "left join lateral ("
             "  select array_agg(modulo_id) as modulo_ids from perfil_modulo_permissoes where perfil_id = p.id"
             ") pm on true "
+            "left join lateral ("
+            "  select array_agg(menu_codigo) as menu_ids from perfil_menu_permissoes where perfil_id = p.id"
+            ") pmenu on true "
             "order by p.ativo desc, p.nome;"
         )
         return cur.fetchall()
@@ -238,10 +277,11 @@ def list_perfis_acesso(_: CurrentUser = Depends(get_current_user)):
     "/perfis-acesso", response_model=PerfilAcesso, status_code=status.HTTP_201_CREATED
 )
 def create_perfil_acesso(
-    payload: PerfilAcessoCreate, _: CurrentUser = Depends(get_current_user)
+    payload: PerfilAcessoCreate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PERFIS)),
 ):
     with get_conn() as conn, conn.cursor() as cur:
-        data = payload.model_dump(exclude={"modulo_ids"})
+        data = payload.model_dump(exclude={"modulo_ids", "menu_ids"})
         cur.execute(
             """
             insert into perfis_acesso (codigo, nome, descricao, escopo)
@@ -262,18 +302,29 @@ def create_perfil_acesso(
                 (perfil["id"], modulo_id),
             )
 
+        for menu_codigo in payload.menu_ids:
+            cur.execute(
+                "insert into perfil_menu_permissoes (perfil_id, menu_codigo) values (%s, %s) "
+                "on conflict do nothing;",
+                (perfil["id"], menu_codigo),
+            )
+
         conn.commit()
         perfil["modulo_ids"] = payload.modulo_ids
+        perfil["menu_ids"] = payload.menu_ids
         return perfil
 
 
 @router.patch("/perfis-acesso/{perfil_id}", response_model=PerfilAcesso)
 def update_perfil_acesso(
-    perfil_id: UUID, payload: PerfilAcessoUpdate, _: CurrentUser = Depends(get_current_user)
+    perfil_id: UUID,
+    payload: PerfilAcessoUpdate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PERFIS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     modulo_ids = fields.pop("modulo_ids", None)
-    if not fields and modulo_ids is None:
+    menu_ids = fields.pop("menu_ids", None)
+    if not fields and modulo_ids is None and menu_ids is None:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
 
     with get_conn() as conn, conn.cursor() as cur:
@@ -287,6 +338,15 @@ def update_perfil_acesso(
                     on conflict do nothing;
                     """,
                     (perfil_id, str(modulo_id)),
+                )
+
+        if menu_ids is not None:
+            cur.execute("delete from perfil_menu_permissoes where perfil_id = %s;", (perfil_id,))
+            for menu_codigo in menu_ids:
+                cur.execute(
+                    "insert into perfil_menu_permissoes (perfil_id, menu_codigo) values (%s, %s) "
+                    "on conflict do nothing;",
+                    (perfil_id, menu_codigo),
                 )
 
         if fields:
@@ -306,12 +366,19 @@ def update_perfil_acesso(
             (perfil_id,),
         )
         row["modulo_ids"] = cur.fetchone()["modulo_ids"]
+        cur.execute(
+            "select coalesce(array_agg(menu_codigo), '{}') as menu_ids from perfil_menu_permissoes where perfil_id = %s;",
+            (perfil_id,),
+        )
+        row["menu_ids"] = cur.fetchone()["menu_ids"]
         conn.commit()
         return row
 
 
 @router.delete("/perfis-acesso/{perfil_id}", status_code=status.HTTP_200_OK)
-def delete_perfil_acesso(perfil_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def delete_perfil_acesso(
+    perfil_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PERFIS))
+):
     """Tenta excluir definitivamente o perfil (so possivel se nunca foi
     concedido a nenhum usuario). Se ja estiver em uso, inativa (soft
     delete) em vez de apagar o historico de acesso."""
@@ -340,14 +407,17 @@ def delete_perfil_acesso(perfil_id: UUID, _: CurrentUser = Depends(get_current_u
 # Clientes (escritorios)
 # ============================================================
 @router.get("/clientes", response_model=list[Cliente])
-def list_clientes(_: CurrentUser = Depends(get_current_user)):
+def list_clientes(_: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("select * from clientes order by nome;")
         return cur.fetchall()
 
 
 @router.post("/clientes", response_model=Cliente, status_code=status.HTTP_201_CREATED)
-def create_cliente(payload: ClienteCreate, _: CurrentUser = Depends(get_current_user)):
+def create_cliente(
+    payload: ClienteCreate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -364,7 +434,9 @@ def create_cliente(payload: ClienteCreate, _: CurrentUser = Depends(get_current_
 
 @router.patch("/clientes/{cliente_id}", response_model=Cliente)
 def update_cliente(
-    cliente_id: UUID, payload: ClienteUpdate, _: CurrentUser = Depends(get_current_user)
+    cliente_id: UUID,
+    payload: ClienteUpdate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     if not fields:
@@ -383,7 +455,9 @@ def update_cliente(
 
 
 @router.delete("/clientes/{cliente_id}", response_model=Cliente)
-def delete_cliente(cliente_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def delete_cliente(
+    cliente_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
+):
     """Inativa o escritorio (soft delete) em vez de excluir fisicamente: exclusao
     fisica faria cascade em cnpjs/licencas/usuarios e apagaria conciliacoes e
     lancamentos contabeis reais desses CNPJs."""
@@ -402,7 +476,9 @@ def delete_cliente(cliente_id: UUID, _: CurrentUser = Depends(get_current_user))
 # CNPJs
 # ============================================================
 @router.get("/clientes/{cliente_id}/cnpjs", response_model=list[Cnpj])
-def list_cnpjs(cliente_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def list_cnpjs(
+    cliente_id: UUID, _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "select * from cnpjs where cliente_id = %s order by razao_social;",
@@ -412,7 +488,9 @@ def list_cnpjs(cliente_id: UUID, _: CurrentUser = Depends(get_current_user)):
 
 
 @router.post("/cnpjs", response_model=Cnpj, status_code=status.HTTP_201_CREATED)
-def create_cnpj(payload: CnpjCreate, _: CurrentUser = Depends(get_current_user)):
+def create_cnpj(
+    payload: CnpjCreate, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -428,7 +506,11 @@ def create_cnpj(payload: CnpjCreate, _: CurrentUser = Depends(get_current_user))
 
 
 @router.patch("/cnpjs/{cnpj_id}", response_model=Cnpj)
-def update_cnpj(cnpj_id: UUID, payload: CnpjUpdate, _: CurrentUser = Depends(get_current_user)):
+def update_cnpj(
+    cnpj_id: UUID,
+    payload: CnpjUpdate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
+):
     fields = payload.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
@@ -444,7 +526,9 @@ def update_cnpj(cnpj_id: UUID, payload: CnpjUpdate, _: CurrentUser = Depends(get
 
 
 @router.delete("/cnpjs/{cnpj_id}", response_model=Cnpj)
-def delete_cnpj(cnpj_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def delete_cnpj(
+    cnpj_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
+):
     """Inativa o cliente/CNPJ (soft delete): exclusao fisica faria cascade em
     conciliacoes e lancamentos contabeis reais desse CNPJ."""
     with get_conn() as conn, conn.cursor() as cur:
@@ -465,7 +549,7 @@ def delete_cnpj(cnpj_id: UUID, _: CurrentUser = Depends(get_current_user)):
 def list_licencas(
     cliente_id: UUID | None = None,
     produto_id: UUID | None = None,
-    _: CurrentUser = Depends(get_current_user),
+    _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO)),
 ):
     filters = []
     params: dict = {}
@@ -498,7 +582,10 @@ def list_licencas(
 
 
 @router.post("/licencas", response_model=Licenca, status_code=status.HTTP_201_CREATED)
-def create_licenca(payload: LicencaCreate, _: CurrentUser = Depends(get_current_user)):
+def create_licenca(
+    payload: LicencaCreate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
+):
     if not payload.modulo_ids:
         raise HTTPException(
             status_code=422, detail="Selecione ao menos um modulo para ativar a licenca"
@@ -574,7 +661,9 @@ def create_licenca(payload: LicencaCreate, _: CurrentUser = Depends(get_current_
 
 @router.patch("/licencas/{licenca_id}", response_model=Licenca)
 def update_licenca(
-    licenca_id: UUID, payload: LicencaUpdate, _: CurrentUser = Depends(get_current_user)
+    licenca_id: UUID,
+    payload: LicencaUpdate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     modulo_ids = fields.pop("modulo_ids", None)
@@ -667,7 +756,10 @@ def _with_convite_status(rows: list[dict]) -> list[dict]:
 @router.post(
     "/usuarios/convite", response_model=UsuarioPortal, status_code=status.HTTP_201_CREATED
 )
-def convidar_usuario(payload: UsuarioConviteCreate, _: CurrentUser = Depends(get_current_user)):
+def convidar_usuario(
+    payload: UsuarioConviteCreate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
+):
     try:
         auth_user_id = supabase_admin.create_user_with_password(
             payload.email, payload.nome, payload.senha
@@ -710,14 +802,16 @@ def convidar_usuario(payload: UsuarioConviteCreate, _: CurrentUser = Depends(get
 
 
 @router.get("/usuarios", response_model=list[UsuarioPortal])
-def list_todos_usuarios(_: CurrentUser = Depends(get_current_user)):
+def list_todos_usuarios(_: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("select * from usuarios_portal order by nome;")
         return _with_convite_status(cur.fetchall())
 
 
 @router.get("/usuarios/{cliente_id}", response_model=list[UsuarioPortal])
-def list_usuarios(cliente_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def list_usuarios(
+    cliente_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "select * from usuarios_portal where cliente_id = %s order by nome;",
@@ -728,7 +822,9 @@ def list_usuarios(cliente_id: UUID, _: CurrentUser = Depends(get_current_user)):
 
 @router.patch("/usuarios/{usuario_id}", response_model=UsuarioPortal)
 def update_usuario(
-    usuario_id: UUID, payload: UsuarioPortalUpdate, _: CurrentUser = Depends(get_current_user)
+    usuario_id: UUID,
+    payload: UsuarioPortalUpdate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     senha = fields.pop("senha", None)
@@ -760,7 +856,9 @@ def update_usuario(
 
 
 @router.post("/usuarios/{usuario_id}/solicitar-senha", status_code=status.HTTP_200_OK)
-def solicitar_senha_usuario(usuario_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def solicitar_senha_usuario(
+    usuario_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
+):
     """Envia o e-mail de redefinicao de senha do Supabase para o usuario —
     o admin nunca ve/define a senha diretamente, apenas aciona o envio."""
     with get_conn() as conn, conn.cursor() as cur:
@@ -775,7 +873,9 @@ def solicitar_senha_usuario(usuario_id: UUID, _: CurrentUser = Depends(get_curre
 
 
 @router.delete("/usuarios/{usuario_id}", status_code=status.HTTP_200_OK)
-def delete_usuario(usuario_id: UUID, _: CurrentUser = Depends(get_current_user)):
+def delete_usuario(
+    usuario_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
+):
     """Revoga o acesso do usuario ao portal (inativa) sem apagar a conta de
     autenticacao nem o historico de vinculos com licencas — reversivel
     reativando (PATCH ativo=true)."""
@@ -797,7 +897,8 @@ def delete_usuario(usuario_id: UUID, _: CurrentUser = Depends(get_current_user))
     status_code=status.HTTP_201_CREATED,
 )
 def create_usuario_licenca(
-    payload: UsuarioLicencaCreate, _: CurrentUser = Depends(get_current_user)
+    payload: UsuarioLicencaCreate,
+    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
 ):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(

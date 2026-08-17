@@ -3,7 +3,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.core.db import get_conn
-from app.core.security import CurrentUser, get_current_admin, get_current_user
+from app.core.security import CurrentUser, get_current_user
+from app.modules.licensing.menus import (
+    MENU_ADMIN_CONCILIACAO,
+    MENU_ADMIN_VISAO_GERAL,
+    get_menus_liberados,
+    require_menu,
+)
 from app.modules.licensing.renovacao import renovar_licencas_vencidas
 from app.schemas.accounting import (
     ConciliacaoSintetico,
@@ -29,17 +35,19 @@ def me(user: CurrentUser = Depends(get_current_user)):
             (user.id,),
         )
         row = cur.fetchone()
+        menus = get_menus_liberados(conn, user.id)
     return {
         "id": user.id,
         "email": user.email,
         "nome": row["nome"] if row else None,
         "cliente_id": str(row["cliente_id"]) if row else None,
         "is_admin": bool(row and row["is_admin"]),
+        "menus": sorted(menus),
     }
 
 
 @router.get("/overview", response_model=Overview)
-def overview(_: CurrentUser = Depends(get_current_admin)):
+def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
     with get_conn() as conn, conn.cursor() as cur:
         renovar_licencas_vencidas(conn)
 
@@ -173,7 +181,7 @@ def list_all_conciliacoes(
     ano: int | None = None,
     mes: int | None = None,
     status: str | None = None,
-    _: CurrentUser = Depends(get_current_admin),
+    _: CurrentUser = Depends(require_menu(MENU_ADMIN_CONCILIACAO)),
 ):
     filters = []
     params: dict = {}
@@ -205,7 +213,9 @@ def list_all_conciliacoes(
 
 
 @router.get("/conciliacoes/{conciliacao_id}/lancamentos", response_model=list[LancamentoAnalitico])
-def list_all_lancamentos(conciliacao_id: UUID, _: CurrentUser = Depends(get_current_admin)):
+def list_all_lancamentos(
+    conciliacao_id: UUID, _: CurrentUser = Depends(require_menu(MENU_ADMIN_CONCILIACAO))
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """

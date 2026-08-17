@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
 from app.modules.accounting.access import get_modulos_liberados, require_cnpjs_liberados
+from app.modules.licensing.menus import MENU_PORTAL_CONTABIL, require_menu
 from app.modules.licensing.renovacao import renovar_licencas_vencidas
 from app.schemas.accounting import ConciliacaoSintetico, LancamentoAnalitico, MeuProdutoLicenciado
 
@@ -12,13 +13,13 @@ router = APIRouter(prefix="/accounting", tags=["accounting"])
 
 
 @router.get("/meus-modulos", response_model=list[str])
-def meus_modulos(user: CurrentUser = Depends(get_current_user)):
+def meus_modulos(user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL))):
     with get_conn() as conn:
         return get_modulos_liberados(conn, user.id)
 
 
 @router.get("/meus-produtos", response_model=list[MeuProdutoLicenciado])
-def meus_produtos(user: CurrentUser = Depends(get_current_user)):
+def meus_produtos(user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL))):
     """Todos os produtos licenciados para o escritorio (cliente) do usuario
     logado, com o(s) CNPJ(s) a que cada licenca se aplica — um CNPJ
     diretamente (produto 'por_cnpj') ou todos os CNPJs ativos do escritorio
@@ -53,7 +54,7 @@ def meus_produtos(user: CurrentUser = Depends(get_current_user)):
 
 
 @router.get("/conciliacoes", response_model=list[ConciliacaoSintetico])
-def list_conciliacoes(user: CurrentUser = Depends(get_current_user)):
+def list_conciliacoes(user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL))):
     with get_conn() as conn:
         cnpj_ids = require_cnpjs_liberados(conn, user.id)
         with conn.cursor() as cur:
@@ -70,7 +71,7 @@ def list_conciliacoes(user: CurrentUser = Depends(get_current_user)):
 
 @router.get("/conciliacoes/{conciliacao_id}/lancamentos", response_model=list[LancamentoAnalitico])
 def list_lancamentos(
-    conciliacao_id: UUID, user: CurrentUser = Depends(get_current_user)
+    conciliacao_id: UUID, user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL))
 ):
     with get_conn() as conn:
         cnpj_ids = require_cnpjs_liberados(conn, user.id)

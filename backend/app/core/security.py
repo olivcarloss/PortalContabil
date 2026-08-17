@@ -75,19 +75,3 @@ def get_current_user(
         )
     claims = decode_supabase_jwt(credentials.credentials)
     return CurrentUser(id=claims["sub"], email=claims.get("email"), claims=claims)
-
-
-def get_current_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-    """Exige que o usuario tenha o flag usuarios_portal.is_admin, usado nas telas
-    que enxergam dados de todos os clientes (fora do isolamento por licenca)."""
-    from app.core.db import get_conn
-
-    with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select is_admin from usuarios_portal where id = %s;", (user.id,))
-        row = cur.fetchone()
-    if not row or not row["is_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acesso restrito a administradores da plataforma",
-        )
-    return user
