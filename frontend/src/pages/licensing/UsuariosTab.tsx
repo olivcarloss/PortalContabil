@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, PerfilAcesso, UsuarioPortal } from "../../api/types";
+
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
 export default function UsuariosTab() {
   const [usuarios, setUsuarios] = useState<UsuarioPortal[]>([]);
@@ -11,6 +14,7 @@ export default function UsuariosTab() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<UsuarioPortal | null>(null);
+  const [expandedUsuarioId, setExpandedUsuarioId] = useState<string | null>(null);
 
   function refresh() {
     Promise.all([
@@ -85,37 +89,85 @@ export default function UsuariosTab() {
             </tr>
           </thead>
           <tbody>
-            {usuarios.map((u) => (
-              <tr key={u.id}>
-                <td>
-                  <div style={{ fontWeight: 600 }}>{u.nome}</div>
-                  {u.cargo && (
-                    <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>{u.cargo}</div>
+            {usuarios.map((u) => {
+              const isExpanded = expandedUsuarioId === u.id;
+              return (
+                <Fragment key={u.id}>
+                  <tr
+                    className="row-clickable"
+                    onClick={() => setExpandedUsuarioId(u.id)}
+                    onDoubleClick={() => setExpandedUsuarioId(null)}
+                  >
+                    <td>
+                      <div style={{ fontWeight: 600 }}>
+                        <span style={{ display: "inline-block", width: 14, color: "var(--color-text-muted)" }}>
+                          {isExpanded ? "▾" : "▸"}
+                        </span>
+                        {u.nome}
+                      </div>
+                      {u.cargo && (
+                        <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginLeft: 14 }}>
+                          {u.cargo}
+                        </div>
+                      )}
+                    </td>
+                    <td>{clientes.find((c) => c.id === u.cliente_id)?.nome ?? "—"}</td>
+                    <td>
+                      <span className={`badge badge-${u.convite_status === "ativo" ? "ativa" : "cancelada"}`}>
+                        {u.convite_status === "ativo" ? "Ativo" : "Convite pendente"}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${u.ativo ? "ativa" : "cancelada"}`}>
+                        {u.ativo ? "Ativo" : "Inativo"}
+                      </span>
+                    </td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+                        <button className="icon-btn" title="Editar" onClick={() => setEditingUsuario(u)}>
+                          ✎
+                        </button>
+                        <button className="icon-btn" title="Desativar" onClick={() => handleDelete(u)}>
+                          🗑
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 0, background: "var(--color-surface-alt)" }}>
+                        <div
+                          style={{
+                            padding: "0.9rem 1.25rem",
+                            display: "grid",
+                            gridTemplateColumns: "repeat(4, 1fr)",
+                            gap: "0.8rem",
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          <div>
+                            <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Escritório</div>
+                            {clientes.find((c) => c.id === u.cliente_id)?.nome ?? "—"}
+                          </div>
+                          <div>
+                            <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Cargo</div>
+                            {u.cargo ?? "—"}
+                          </div>
+                          <div>
+                            <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Status do convite</div>
+                            {u.convite_status === "ativo" ? "Aceito" : "Pendente de aceite"}
+                          </div>
+                          <div>
+                            <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Usuário desde</div>
+                            {formatDateTime(u.criado_em)}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </td>
-                <td>{clientes.find((c) => c.id === u.cliente_id)?.nome ?? "—"}</td>
-                <td>
-                  <span className={`badge badge-${u.convite_status === "ativo" ? "ativa" : "cancelada"}`}>
-                    {u.convite_status === "ativo" ? "Ativo" : "Convite pendente"}
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge badge-${u.ativo ? "ativa" : "cancelada"}`}>
-                    {u.ativo ? "Ativo" : "Inativo"}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
-                    <button className="icon-btn" title="Editar" onClick={() => setEditingUsuario(u)}>
-                      ✎
-                    </button>
-                    <button className="icon-btn" title="Desativar" onClick={() => handleDelete(u)}>
-                      🗑
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
             {usuarios.length === 0 && (
               <tr>
                 <td colSpan={5} className="empty-state">

@@ -53,6 +53,8 @@ export interface UsuarioPortal {
   cargo: string | null;
   ativo: boolean;
   convite_status: "pendente" | "ativo";
+  criado_em: string;
+  atualizado_em: string;
 }
 
 export interface Licenca {

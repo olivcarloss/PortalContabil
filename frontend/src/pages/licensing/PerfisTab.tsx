@@ -11,6 +11,7 @@ export default function PerfisTab() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingPerfil, setEditingPerfil] = useState<PerfilAcesso | null>(null);
+  const [expandedPerfilId, setExpandedPerfilId] = useState<string | null>(null);
 
   function refresh() {
     Promise.all([licensingApi.listPerfisAcesso(), licensingApi.listProdutos()])
@@ -59,28 +60,81 @@ export default function PerfisTab() {
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
       <div style={{ display: "grid", gap: "1rem" }}>
-        {perfis.map((p) => (
-          <div key={p.id} className="card">
-            <div className="panel-head">
-              <div>
-                <h3>{p.nome}</h3>
-                <div className="sub">{p.descricao}</div>
+        {perfis.map((p) => {
+          const isExpanded = expandedPerfilId === p.id;
+          return (
+            <div
+              key={p.id}
+              className="card row-clickable"
+              onClick={() => setExpandedPerfilId(p.id)}
+              onDoubleClick={() => setExpandedPerfilId(null)}
+            >
+              <div className="panel-head">
+                <div>
+                  <h3>
+                    <span style={{ display: "inline-block", width: 14, color: "var(--color-text-muted)" }}>
+                      {isExpanded ? "▾" : "▸"}
+                    </span>
+                    {p.nome}
+                  </h3>
+                  <div className="sub" style={{ marginLeft: 14 }}>
+                    {p.descricao}
+                  </div>
+                </div>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="badge badge-neutral">{p.escopo}</span>
+                  <span className={`badge badge-${p.ativo ? "ativa" : "cancelada"}`}>
+                    {p.ativo ? "Ativo" : "Inativo"}
+                  </span>
+                  <button className="icon-btn" title="Editar" onClick={() => setEditingPerfil(p)}>
+                    ✎
+                  </button>
+                  <button className="icon-btn" title="Excluir" onClick={() => handleDelete(p)}>
+                    🗑
+                  </button>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span className="badge badge-neutral">{p.escopo}</span>
-                <span className={`badge badge-${p.ativo ? "ativa" : "cancelada"}`}>
-                  {p.ativo ? "Ativo" : "Inativo"}
-                </span>
-                <button className="icon-btn" title="Editar" onClick={() => setEditingPerfil(p)}>
-                  ✎
-                </button>
-                <button className="icon-btn" title="Excluir" onClick={() => handleDelete(p)}>
-                  🗑
-                </button>
-              </div>
+              {isExpanded && (
+                <div
+                  style={{
+                    marginTop: "0.8rem",
+                    paddingTop: "0.8rem",
+                    borderTop: "1px solid var(--color-border)",
+                    marginLeft: 14,
+                  }}
+                >
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: "0.5rem" }}>
+                    Módulos liberados
+                  </div>
+                  {produtos.map((produto) => {
+                    const modulosLiberados = (modulosByProduto[produto.id] ?? []).filter((m) =>
+                      p.modulo_ids.includes(m.id)
+                    );
+                    if (modulosLiberados.length === 0) return null;
+                    return (
+                      <div key={produto.id} style={{ marginBottom: "0.5rem" }}>
+                        <span style={{ fontSize: "0.8rem", fontWeight: 600 }}>{produto.nome}: </span>
+                        {modulosLiberados.map((m) => (
+                          <span key={m.id} className="chip">
+                            {m.nome}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  {p.modulo_ids.length === 0 && (
+                    <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+                      Nenhum módulo liberado para este perfil.
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         {perfis.length === 0 && !error && <div className="empty-state">Carregando perfis...</div>}
       </div>
 

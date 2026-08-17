@@ -23,6 +23,7 @@ export default function OverviewTab() {
   const [cnpjsByCliente, setCnpjsByCliente] = useState<Record<string, Cnpj[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [expandedProdutoId, setExpandedProdutoId] = useState<string | null>(null);
+  const [filtroStatusProduto, setFiltroStatusProduto] = useState<"ativo" | "inativo" | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -50,6 +51,14 @@ export default function OverviewTab() {
     .filter((l) => l.status === "ativa" && l.periodicidade === "mensal")
     .reduce((sum, l) => sum + l.valor_total, 0);
   const usuariosAtivos = usuarios.filter((u) => u.ativo).length;
+  const produtosAtivos = produtos.filter((p) => p.ativo).length;
+  const produtosInativos = produtos.length - produtosAtivos;
+
+  const produtosFiltrados = produtos.filter((p) => {
+    if (filtroStatusProduto === "ativo") return p.ativo;
+    if (filtroStatusProduto === "inativo") return !p.ativo;
+    return true;
+  });
 
   function clienteNome(clienteId: string) {
     return clientes.find((c) => c.id === clienteId)?.nome ?? "—";
@@ -87,14 +96,41 @@ export default function OverviewTab() {
           <div className="delta">de {licencas.length} no total</div>
         </div>
         <div className="stat-card">
+          <div className="eyebrow">Usuários ativos</div>
+          <div className="val">{usuariosAtivos}</div>
+          <div className="delta">no portal contábil</div>
+        </div>
+        <div className="stat-card">
           <div className="eyebrow">Receita recorrente mensal</div>
           <div className="val">{mrr.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
           <div className="delta">estimativa (licenças mensais ativas)</div>
         </div>
-        <div className="stat-card">
-          <div className="eyebrow">Usuários ativos</div>
-          <div className="val">{usuariosAtivos}</div>
-          <div className="delta">no portal contábil</div>
+        <div className="stat-card" onDoubleClick={() => setFiltroStatusProduto(null)}>
+          <div className="eyebrow">Produtos</div>
+          <div className="val">{produtos.length}</div>
+          <div className="delta">
+            <span
+              onClick={() => setFiltroStatusProduto(filtroStatusProduto === "ativo" ? null : "ativo")}
+              style={{
+                cursor: "pointer",
+                fontWeight: filtroStatusProduto === "ativo" ? 700 : 400,
+                textDecoration: filtroStatusProduto === "ativo" ? "underline" : "none",
+              }}
+            >
+              {produtosAtivos} ativos
+            </span>
+            {" · "}
+            <span
+              onClick={() => setFiltroStatusProduto(filtroStatusProduto === "inativo" ? null : "inativo")}
+              style={{
+                cursor: "pointer",
+                fontWeight: filtroStatusProduto === "inativo" ? 700 : 400,
+                textDecoration: filtroStatusProduto === "inativo" ? "underline" : "none",
+              }}
+            >
+              {produtosInativos} não ativos
+            </span>
+          </div>
         </div>
       </div>
 
@@ -105,6 +141,19 @@ export default function OverviewTab() {
             <div className="sub">
               Produtos padrão de mercado disponíveis para licenciamento · clique numa linha para ver
               CNPJs, licenças e valores
+              {filtroStatusProduto && (
+                <>
+                  {" "}
+                  · filtrando por {filtroStatusProduto === "ativo" ? "ativos" : "não ativos"} (
+                  <span
+                    style={{ cursor: "pointer", textDecoration: "underline" }}
+                    onClick={() => setFiltroStatusProduto(null)}
+                  >
+                    limpar filtro
+                  </span>
+                  )
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -118,7 +167,7 @@ export default function OverviewTab() {
             </tr>
           </thead>
           <tbody>
-            {produtos.map((p) => {
+            {produtosFiltrados.map((p) => {
               const isExpanded = expandedProdutoId === p.id;
               const licencasDoProduto = licencas.filter((l) => l.produto_id === p.id);
               const licencasAtivasDoProduto = licencasDoProduto.filter((l) => l.status === "ativa");
@@ -204,6 +253,13 @@ export default function OverviewTab() {
                 </Fragment>
               );
             })}
+            {produtosFiltrados.length === 0 && (
+              <tr>
+                <td colSpan={4} className="empty-state">
+                  Nenhum produto encontrado para o filtro selecionado.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

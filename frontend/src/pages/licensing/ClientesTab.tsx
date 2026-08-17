@@ -138,7 +138,12 @@ export default function ClientesTab() {
           </thead>
           <tbody>
             {clientes.map((c) => (
-              <tr key={c.id} className="row-clickable" onClick={() => openDetail(c.id)}>
+              <tr
+                key={c.id}
+                className="row-clickable"
+                onClick={() => openDetail(c.id)}
+                onDoubleClick={() => setSelectedClienteId(null)}
+              >
                 <td style={{ fontWeight: 600 }}>{c.nome}</td>
                 <td>{c.email_contato ?? "—"}</td>
                 <td>{cnpjCountByCliente[c.id] ?? "…"}</td>
