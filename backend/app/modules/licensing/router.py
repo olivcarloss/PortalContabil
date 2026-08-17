@@ -514,6 +514,22 @@ def create_licenca(payload: LicencaCreate, _: CurrentUser = Depends(get_current_
                 detail="Este produto e licenciado por cliente (cnpj_id deve ser nulo)",
             )
 
+        if produto["escopo_licenca"] == "por_cliente":
+            cur.execute(
+                "select 1 from licencas where produto_id = %s and cliente_id = %s and status <> 'cancelada';",
+                (payload.produto_id, payload.cliente_id),
+            )
+        else:
+            cur.execute(
+                "select 1 from licencas where produto_id = %s and cnpj_id = %s and status <> 'cancelada';",
+                (payload.produto_id, payload.cnpj_id),
+            )
+        if cur.fetchone() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ja existe uma licenca (ativa ou suspensa) deste produto para este escritorio/CNPJ",
+            )
+
         cur.execute(
             "select coalesce(sum(valor_execucao), 0) as total from modulos where id = any(%s::uuid[]);",
             ([str(m) for m in payload.modulo_ids],),
