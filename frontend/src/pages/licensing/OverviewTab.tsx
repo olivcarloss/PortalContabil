@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto, UsuarioPortal } from "../../api/types";
 
@@ -15,6 +15,16 @@ const STATUS_LABEL: Record<string, string> = {
 // o padding do cabeçalho do card (1.25rem).
 const FIRST_COL_STYLE = { paddingLeft: "1.25rem" };
 
+type FiltroTotalizador = "escritorios" | "licencas" | "receita" | "produtoAtivo" | "produtoInativo" | null;
+
+const FILTRO_LABEL: Record<Exclude<FiltroTotalizador, null>, string> = {
+  escritorios: "produtos licenciados por escritório ativo",
+  licencas: "produtos com licença ativa",
+  receita: "produtos com receita recorrente",
+  produtoAtivo: "produtos ativos",
+  produtoInativo: "produtos não ativos",
+};
+
 export default function OverviewTab() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -23,7 +33,7 @@ export default function OverviewTab() {
   const [cnpjsByCliente, setCnpjsByCliente] = useState<Record<string, Cnpj[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [expandedProdutoId, setExpandedProdutoId] = useState<string | null>(null);
-  const [filtroStatusProduto, setFiltroStatusProduto] = useState<"ativo" | "inativo" | null>(null);
+  const [filtroAtivo, setFiltroAtivo] = useState<FiltroTotalizador>(null);
 
   useEffect(() => {
     Promise.all([
@@ -54,12 +64,6 @@ export default function OverviewTab() {
   const produtosAtivos = produtos.filter((p) => p.ativo).length;
   const produtosInativos = produtos.length - produtosAtivos;
 
-  const produtosFiltrados = produtos.filter((p) => {
-    if (filtroStatusProduto === "ativo") return p.ativo;
-    if (filtroStatusProduto === "inativo") return !p.ativo;
-    return true;
-  });
-
   function clienteNome(clienteId: string) {
     return clientes.find((c) => c.id === clienteId)?.nome ?? "—";
   }
@@ -68,6 +72,57 @@ export default function OverviewTab() {
     if (!licenca.cnpj_id) return "Todos os CNPJs do escritório";
     const cnpj = (cnpjsByCliente[licenca.cliente_id] ?? []).find((c) => c.id === licenca.cnpj_id);
     return cnpj ? `${cnpj.cnpj} · ${cnpj.razao_social}` : "—";
+  }
+
+  const produtosAgregados = useMemo(
+    () =>
+      produtos.map((p) => {
+        const licencasDoProduto = licencas.filter((l) => l.produto_id === p.id);
+        const licencasAtivasDoProduto = licencasDoProduto.filter((l) => l.status === "ativa");
+
+        const cnpjsCobertos = new Set<string>();
+        for (const l of licencasAtivasDoProduto) {
+          if (l.cnpj_id) {
+            cnpjsCobertos.add(l.cnpj_id);
+          } else {
+            for (const cnpj of cnpjsByCliente[l.cliente_id] ?? []) {
+              if (cnpj.ativo) cnpjsCobertos.add(cnpj.id);
+            }
+          }
+        }
+
+        const mrrDoProduto = licencasAtivasDoProduto
+          .filter((l) => l.periodicidade === "mensal")
+          .reduce((sum, l) => sum + l.valor_total, 0);
+
+        const temEscritorioAtivo = licencasDoProduto.some(
+          (l) => clientes.find((c) => c.id === l.cliente_id)?.ativo
+        );
+
+        return { produto: p, licencasDoProduto, licencasAtivasDoProduto, cnpjsCobertos, mrrDoProduto, temEscritorioAtivo };
+      }),
+    [produtos, licencas, cnpjsByCliente, clientes]
+  );
+
+  const itensFiltrados = produtosAgregados.filter(({ produto: p, licencasAtivasDoProduto, mrrDoProduto, temEscritorioAtivo }) => {
+    switch (filtroAtivo) {
+      case "produtoAtivo":
+        return p.ativo;
+      case "produtoInativo":
+        return !p.ativo;
+      case "escritorios":
+        return temEscritorioAtivo;
+      case "licencas":
+        return licencasAtivasDoProduto.length > 0;
+      case "receita":
+        return mrrDoProduto > 0;
+      default:
+        return true;
+    }
+  });
+
+  function toggleFiltro(valor: Exclude<FiltroTotalizador, null>) {
+    setFiltroAtivo((atual) => (atual === valor ? null : valor));
   }
 
   return (
@@ -84,13 +139,21 @@ export default function OverviewTab() {
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
-      <div className="stat-grid">
-        <div className="stat-card">
+      <div className="stat-grid" onDoubleClick={() => setFiltroAtivo(null)}>
+        <div
+          className="stat-card row-clickable"
+          onClick={() => toggleFiltro("escritorios")}
+          style={filtroAtivo === "escritorios" ? { borderColor: "var(--color-primary)" } : undefined}
+        >
           <div className="eyebrow">Escritórios ativos</div>
           <div className="val">{clientesAtivos}</div>
           <div className="delta">de {clientes.length} cadastrados</div>
         </div>
-        <div className="stat-card">
+        <div
+          className="stat-card row-clickable"
+          onClick={() => toggleFiltro("licencas")}
+          style={filtroAtivo === "licencas" ? { borderColor: "var(--color-primary)" } : undefined}
+        >
           <div className="eyebrow">Licenças ativas</div>
           <div className="val">{licencasAtivas}</div>
           <div className="delta">de {licencas.length} no total</div>
@@ -100,32 +163,36 @@ export default function OverviewTab() {
           <div className="val">{usuariosAtivos}</div>
           <div className="delta">no portal contábil</div>
         </div>
-        <div className="stat-card">
+        <div
+          className="stat-card row-clickable"
+          onClick={() => toggleFiltro("receita")}
+          style={filtroAtivo === "receita" ? { borderColor: "var(--color-primary)" } : undefined}
+        >
           <div className="eyebrow">Receita recorrente mensal</div>
           <div className="val">{mrr.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
           <div className="delta">estimativa (licenças mensais ativas)</div>
         </div>
-        <div className="stat-card" onDoubleClick={() => setFiltroStatusProduto(null)}>
+        <div className="stat-card">
           <div className="eyebrow">Produtos</div>
           <div className="val">{produtos.length}</div>
           <div className="delta">
             <span
-              onClick={() => setFiltroStatusProduto(filtroStatusProduto === "ativo" ? null : "ativo")}
+              onClick={() => toggleFiltro("produtoAtivo")}
               style={{
                 cursor: "pointer",
-                fontWeight: filtroStatusProduto === "ativo" ? 700 : 400,
-                textDecoration: filtroStatusProduto === "ativo" ? "underline" : "none",
+                fontWeight: filtroAtivo === "produtoAtivo" ? 700 : 400,
+                textDecoration: filtroAtivo === "produtoAtivo" ? "underline" : "none",
               }}
             >
               {produtosAtivos} ativos
             </span>
             {" · "}
             <span
-              onClick={() => setFiltroStatusProduto(filtroStatusProduto === "inativo" ? null : "inativo")}
+              onClick={() => toggleFiltro("produtoInativo")}
               style={{
                 cursor: "pointer",
-                fontWeight: filtroStatusProduto === "inativo" ? 700 : 400,
-                textDecoration: filtroStatusProduto === "inativo" ? "underline" : "none",
+                fontWeight: filtroAtivo === "produtoInativo" ? 700 : 400,
+                textDecoration: filtroAtivo === "produtoInativo" ? "underline" : "none",
               }}
             >
               {produtosInativos} não ativos
@@ -140,15 +207,13 @@ export default function OverviewTab() {
             <h3>Produtos no catálogo</h3>
             <div className="sub">
               Produtos padrão de mercado disponíveis para licenciamento · clique numa linha para ver
-              CNPJs, licenças e valores
-              {filtroStatusProduto && (
+              CNPJs, licenças e valores · clique num totalizador acima para filtrar, clique duas
+              vezes para limpar
+              {filtroAtivo && (
                 <>
                   {" "}
-                  · filtrando por {filtroStatusProduto === "ativo" ? "ativos" : "não ativos"} (
-                  <span
-                    style={{ cursor: "pointer", textDecoration: "underline" }}
-                    onClick={() => setFiltroStatusProduto(null)}
-                  >
+                  · filtrando por {FILTRO_LABEL[filtroAtivo]} (
+                  <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setFiltroAtivo(null)}>
                     limpar filtro
                   </span>
                   )
@@ -167,25 +232,8 @@ export default function OverviewTab() {
             </tr>
           </thead>
           <tbody>
-            {produtosFiltrados.map((p) => {
+            {itensFiltrados.map(({ produto: p, licencasDoProduto, licencasAtivasDoProduto, cnpjsCobertos, mrrDoProduto }) => {
               const isExpanded = expandedProdutoId === p.id;
-              const licencasDoProduto = licencas.filter((l) => l.produto_id === p.id);
-              const licencasAtivasDoProduto = licencasDoProduto.filter((l) => l.status === "ativa");
-
-              const cnpjsCobertos = new Set<string>();
-              for (const l of licencasAtivasDoProduto) {
-                if (l.cnpj_id) {
-                  cnpjsCobertos.add(l.cnpj_id);
-                } else {
-                  for (const cnpj of cnpjsByCliente[l.cliente_id] ?? []) {
-                    if (cnpj.ativo) cnpjsCobertos.add(cnpj.id);
-                  }
-                }
-              }
-
-              const mrrDoProduto = licencasAtivasDoProduto
-                .filter((l) => l.periodicidade === "mensal")
-                .reduce((sum, l) => sum + l.valor_total, 0);
 
               return (
                 <Fragment key={p.id}>
@@ -253,7 +301,7 @@ export default function OverviewTab() {
                 </Fragment>
               );
             })}
-            {produtosFiltrados.length === 0 && (
+            {itensFiltrados.length === 0 && (
               <tr>
                 <td colSpan={4} className="empty-state">
                   Nenhum produto encontrado para o filtro selecionado.

@@ -307,6 +307,7 @@ export default function AccountingHome() {
                   key={c.conciliacao_id}
                   className={temAnalitico ? "row-clickable" : ""}
                   onClick={temAnalitico ? () => openConciliacao(c) : undefined}
+                  onDoubleClick={temAnalitico ? () => setSelected(null) : undefined}
                 >
                   <td>{c.cnpj}</td>
                   <td>{c.razao_social}</td>

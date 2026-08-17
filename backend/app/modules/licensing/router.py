@@ -577,6 +577,40 @@ def update_licenca(
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
 
     with get_conn() as conn, conn.cursor() as cur:
+        if fields.get("status") == "cancelada":
+            cur.execute(
+                "select *, (select coalesce(array_agg(modulo_id), '{}') from licenca_modulos "
+                "where licenca_id = licencas.id) as modulo_ids from licencas where id = %s;",
+                (licenca_id,),
+            )
+            licenca = cur.fetchone()
+            if licenca is None:
+                raise HTTPException(status_code=404, detail="Licenca nao encontrada")
+
+            if licenca["cnpj_id"] is not None:
+                cnpj_ids = [licenca["cnpj_id"]]
+            else:
+                cur.execute("select id from cnpjs where cliente_id = %s;", (licenca["cliente_id"],))
+                cnpj_ids = [r["id"] for r in cur.fetchall()]
+
+            tem_movimentacao = False
+            if cnpj_ids:
+                cur.execute(
+                    "select 1 from conciliacoes where cnpj_id = any(%s::uuid[]) limit 1;",
+                    (cnpj_ids,),
+                )
+                tem_movimentacao = cur.fetchone() is not None
+
+            if not tem_movimentacao:
+                # Sem lancamentos/conciliacoes vinculados: cancelar remove a
+                # ativacao por completo (em vez de so marcar cancelada), para
+                # que o produto volte a aparecer como "Nao ativado" e possa
+                # ser reativado do zero, sem modulos pre-selecionados.
+                cur.execute("delete from licencas where id = %s;", (licenca_id,))
+                conn.commit()
+                licenca["status"] = "cancelada"
+                return licenca
+
         if modulo_ids is not None:
             cur.execute("select qtd_licencas from licencas where id = %s;", (licenca_id,))
             existing = cur.fetchone()

@@ -20,6 +20,7 @@ export default function ClientesTab() {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [showCnpjForm, setShowCnpjForm] = useState(false);
   const [editingCnpj, setEditingCnpj] = useState<Cnpj | null>(null);
+  const [filtroAtivo, setFiltroAtivo] = useState<"ativos" | "comCnpj" | "comLicencaAtiva" | "comReceita" | null>(null);
 
   function refresh() {
     Promise.all([licensingApi.listClientes(), licensingApi.listProdutos()])
@@ -84,6 +85,25 @@ export default function ClientesTab() {
 
   const selectedCliente = clientes.find((c) => c.id === selectedClienteId);
 
+  function toggleFiltro(valor: "ativos" | "comCnpj" | "comLicencaAtiva" | "comReceita") {
+    setFiltroAtivo((atual) => (atual === valor ? null : valor));
+  }
+
+  const clientesFiltrados = clientes.filter((c) => {
+    switch (filtroAtivo) {
+      case "ativos":
+        return c.ativo;
+      case "comCnpj":
+        return (cnpjCountByCliente[c.id] ?? 0) > 0;
+      case "comLicencaAtiva":
+        return (licAtivasCountByCliente[c.id] ?? 0) > 0;
+      case "comReceita":
+        return (mrrByCliente[c.id] ?? 0) > 0;
+      default:
+        return true;
+    }
+  });
+
   return (
     <div>
       <div className="content-head">
@@ -96,21 +116,27 @@ export default function ClientesTab() {
         </button>
       </div>
 
-      <div className="stat-grid">
+      <div className="stat-grid" onDoubleClick={() => setFiltroAtivo(null)}>
         <StatCard
           eyebrow="Escritórios"
           value={String(clientes.length)}
           delta={`${clientes.filter((c) => c.ativo).length} ativos`}
+          onClick={() => toggleFiltro("ativos")}
+          active={filtroAtivo === "ativos"}
         />
         <StatCard
           eyebrow="CNPJs cadastrados"
           value={String(Object.values(cnpjCountByCliente).reduce((sum, n) => sum + n, 0))}
           delta="clientes atendidos, todos os escritórios"
+          onClick={() => toggleFiltro("comCnpj")}
+          active={filtroAtivo === "comCnpj"}
         />
         <StatCard
           eyebrow="Licenças ativas"
           value={String(Object.values(licAtivasCountByCliente).reduce((sum, n) => sum + n, 0))}
           delta="em todos os escritórios"
+          onClick={() => toggleFiltro("comLicencaAtiva")}
+          active={filtroAtivo === "comLicencaAtiva"}
         />
         <StatCard
           eyebrow="Receita recorrente mensal"
@@ -118,10 +144,30 @@ export default function ClientesTab() {
             .reduce((sum, n) => sum + n, 0)
             .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
           delta="licenças mensais ativas, todos os escritórios"
+          onClick={() => toggleFiltro("comReceita")}
+          active={filtroAtivo === "comReceita"}
         />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
+
+      {filtroAtivo && (
+        <p style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginTop: "-0.6rem" }}>
+          Filtrando por{" "}
+          {
+            {
+              ativos: "escritórios ativos",
+              comCnpj: "escritórios com CNPJs cadastrados",
+              comLicencaAtiva: "escritórios com licença ativa",
+              comReceita: "escritórios com receita recorrente",
+            }[filtroAtivo]
+          }{" "}
+          ·{" "}
+          <span style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => setFiltroAtivo(null)}>
+            limpar filtro
+          </span>
+        </p>
+      )}
 
       <div className="card" style={{ padding: 0 }}>
         <table>
@@ -137,7 +183,7 @@ export default function ClientesTab() {
             </tr>
           </thead>
           <tbody>
-            {clientes.map((c) => (
+            {clientesFiltrados.map((c) => (
               <tr
                 key={c.id}
                 className="row-clickable"
@@ -171,10 +217,10 @@ export default function ClientesTab() {
                 </td>
               </tr>
             ))}
-            {clientes.length === 0 && (
+            {clientesFiltrados.length === 0 && (
               <tr>
                 <td colSpan={7} className="empty-state">
-                  Nenhum escritório cadastrado.
+                  {clientes.length === 0 ? "Nenhum escritório cadastrado." : "Nenhum escritório encontrado para o filtro selecionado."}
                 </td>
               </tr>
             )}
