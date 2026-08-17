@@ -6,7 +6,7 @@ from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.router import router as admin_router
 from app.modules.licensing.router import router as licensing_router
 
-app = FastAPI(title="Portal IA-Cloude API", version="0.1.0")
+app = FastAPI(title="PortalContabil.cloud API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

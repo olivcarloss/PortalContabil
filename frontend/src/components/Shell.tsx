@@ -38,7 +38,11 @@ export default function Shell() {
             alignItems: "center",
           }}
         >
-          <img src="/ia-cloude-logo.png" alt="IA-Cloude" style={{ width: "100%", height: "auto", display: "block" }} />
+          <img
+            src="/portal-contabil-logo.svg"
+            alt="PortalContabil.cloud"
+            style={{ width: "100%", height: "auto", display: "block" }}
+          />
         </Link>
         <nav style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
           {isAdmin && <SidebarLink to="/visao-geral" label="One Page de Produtos" />}

@@ -35,8 +35,8 @@ export default function EsqueciSenha() {
     >
       <div className="card" style={{ width: 380 }}>
         <img
-          src="/ia-cloude-logo.png"
-          alt="IA-Cloude"
+          src="/portal-contabil-logo.svg"
+          alt="PortalContabil.cloud"
           style={{ height: 44, width: "auto", display: "block", marginBottom: "1.5rem" }}
         />
 

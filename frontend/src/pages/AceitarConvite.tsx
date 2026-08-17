@@ -60,8 +60,8 @@ export default function AceitarConvite() {
     >
       <div className="card" style={{ width: 400 }}>
         <img
-          src="/ia-cloude-logo.png"
-          alt="IA-Cloude"
+          src="/portal-contabil-logo.svg"
+          alt="PortalContabil.cloud"
           style={{ height: 44, width: "auto", display: "block", marginBottom: "1.5rem" }}
         />
 
@@ -92,7 +92,7 @@ export default function AceitarConvite() {
           <form onSubmit={handleSubmit}>
             <h1 style={{ fontSize: "1.3rem" }}>Ative sua conta</h1>
             <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem", marginBottom: "1.4rem" }}>
-              Defina uma senha para acessar o Portal IA-Cloude.
+              Defina uma senha para acessar o PortalContabil.cloud.
             </p>
 
             <label style={{ display: "block", marginBottom: "0.9rem" }}>

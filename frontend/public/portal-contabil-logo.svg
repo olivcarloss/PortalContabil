@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" role="img" aria-label="PortalContabil.cloud">
+  <rect x="0" y="0" width="64" height="64" rx="16" fill="#534AB7" />
+  <rect x="14" y="34" width="11" height="22" rx="3" fill="#ffffff" />
+  <rect x="30" y="22" width="11" height="34" rx="3" fill="#ffffff" />
+  <rect x="46" y="10" width="11" height="46" rx="3" fill="#ffffff" />
+  <polyline
+    points="10,40 26,54 55,14"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <text x="78" y="30" font-family="Inter, -apple-system, sans-serif" font-size="26" font-weight="800" fill="#1f1b3a">
+    PortalContábil
+  </text>
+  <text x="78" y="52" font-family="Inter, -apple-system, sans-serif" font-size="18" font-weight="600" fill="#EA580C">
+    .cloud
+  </text>
+</svg>
