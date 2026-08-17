@@ -85,8 +85,8 @@ export default function Shell() {
           <div style={{ marginBottom: "0.5rem" }}>{session?.user.email}</div>
           <button
             onClick={() => signOut()}
-            className="btn btn-secondary"
-            style={{ color: "white", borderColor: "rgba(255,255,255,0.3)", width: "100%" }}
+            className="btn btn-secondary btn-sidebar"
+            style={{ width: "100%" }}
           >
             Sair
           </button>

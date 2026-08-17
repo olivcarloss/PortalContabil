@@ -106,6 +106,19 @@ button {
   background: var(--color-surface-alt);
 }
 
+/* Variante para uso sobre fundos escuros (ex.: barra lateral) — o
+   .btn-secondary padrao tem fundo/texto claros, invisiveis ali. */
+.btn-sidebar {
+  background: transparent;
+  color: white;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn-sidebar:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
