@@ -194,12 +194,14 @@ class UsuarioPortalUpdate(BaseModel):
     cargo: str | None = None
     ativo: bool | None = None
     senha: str | None = Field(default=None, min_length=8)
+    perfil_acesso_id: UUID | None = None
 
 
 class UsuarioPortal(UsuarioPortalBase):
     criado_em: datetime
     atualizado_em: datetime
     convite_status: str = "ativo"
+    perfil_acesso_id: UUID | None = None
 
 
 class UsuarioLicencaCreate(BaseModel):

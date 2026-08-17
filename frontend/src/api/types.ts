@@ -56,6 +56,7 @@ export interface UsuarioPortal {
   convite_status: "pendente" | "ativo";
   criado_em: string;
   atualizado_em: string;
+  perfil_acesso_id: string | null;
 }
 
 export interface Licenca {

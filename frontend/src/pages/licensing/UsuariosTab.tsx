@@ -164,7 +164,7 @@ export default function UsuariosTab() {
                           style={{
                             padding: "0.9rem 1.25rem",
                             display: "grid",
-                            gridTemplateColumns: "repeat(4, 1fr)",
+                            gridTemplateColumns: "repeat(5, 1fr)",
                             gap: "0.8rem",
                             fontSize: "0.85rem",
                           }}
@@ -176,6 +176,10 @@ export default function UsuariosTab() {
                           <div>
                             <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Cargo</div>
                             {u.cargo ?? "—"}
+                          </div>
+                          <div>
+                            <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Perfil de acesso</div>
+                            {perfis.find((p) => p.id === u.perfil_acesso_id)?.nome ?? "—"}
                           </div>
                           <div>
                             <div style={{ color: "var(--color-text-muted)", fontSize: "0.75rem" }}>Status do convite</div>
@@ -218,6 +222,7 @@ export default function UsuariosTab() {
       {editingUsuario && (
         <EditarUsuarioModal
           usuario={editingUsuario}
+          perfis={perfis}
           onClose={() => setEditingUsuario(null)}
           onSaved={() => {
             setEditingUsuario(null);
@@ -231,16 +236,19 @@ export default function UsuariosTab() {
 
 function EditarUsuarioModal({
   usuario,
+  perfis,
   onClose,
   onSaved,
 }: {
   usuario: UsuarioPortal;
+  perfis: PerfilAcesso[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [nome, setNome] = useState(usuario.nome);
   const [cargo, setCargo] = useState(usuario.cargo ?? "");
   const [ativo, setAtivo] = useState(usuario.ativo);
+  const [perfilId, setPerfilId] = useState(usuario.perfil_acesso_id ?? perfis[0]?.id ?? "");
   const [novaSenha, setNovaSenha] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -261,6 +269,7 @@ function EditarUsuarioModal({
         nome: nome.trim(),
         cargo: cargo.trim() || null,
         ativo,
+        ...(perfilId && perfilId !== usuario.perfil_acesso_id ? { perfil_acesso_id: perfilId } : {}),
         ...(novaSenha ? { senha: novaSenha } : {}),
       });
       onSaved();
@@ -297,6 +306,18 @@ function EditarUsuarioModal({
         <select value={ativo ? "1" : "0"} onChange={(e) => setAtivo(e.target.value === "1")}>
           <option value="1">Ativo</option>
           <option value="0">Inativo</option>
+        </select>
+      </Field>
+      <Field
+        label="Perfil de acesso"
+        hint="Troca o perfil em todas as licenças ativas do escritório vinculadas a este usuário."
+      >
+        <select value={perfilId} onChange={(e) => setPerfilId(e.target.value)}>
+          {perfis.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nome}
+            </option>
+          ))}
         </select>
       </Field>
       <Field label="Nova senha" hint="Deixe em branco para manter a senha atual.">

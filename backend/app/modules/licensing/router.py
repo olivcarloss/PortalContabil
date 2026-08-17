@@ -797,6 +797,7 @@ def convidar_usuario(
             )
 
         conn.commit()
+        usuario["perfil_acesso_id"] = payload.perfil_acesso_id
         usuario["convite_status"] = supabase_admin.get_users_status([auth_user_id])[auth_user_id]
         return usuario
 
@@ -804,7 +805,11 @@ def convidar_usuario(
 @router.get("/usuarios", response_model=list[UsuarioPortal])
 def list_todos_usuarios(_: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select * from usuarios_portal order by nome;")
+        cur.execute(
+            "select up.*, (select ul.perfil_acesso_id from usuario_licencas ul "
+            "where ul.usuario_id = up.id limit 1) as perfil_acesso_id "
+            "from usuarios_portal up order by up.nome;"
+        )
         return _with_convite_status(cur.fetchall())
 
 
@@ -814,7 +819,9 @@ def list_usuarios(
 ):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "select * from usuarios_portal where cliente_id = %s order by nome;",
+            "select up.*, (select ul.perfil_acesso_id from usuario_licencas ul "
+            "where ul.usuario_id = up.id limit 1) as perfil_acesso_id "
+            "from usuarios_portal up where up.cliente_id = %s order by up.nome;",
             (cliente_id,),
         )
         return _with_convite_status(cur.fetchall())
@@ -828,7 +835,8 @@ def update_usuario(
 ):
     fields = payload.model_dump(exclude_unset=True)
     senha = fields.pop("senha", None)
-    if not fields and senha is None:
+    perfil_acesso_id = fields.pop("perfil_acesso_id", None)
+    if not fields and senha is None and perfil_acesso_id is None:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
 
     with get_conn() as conn, conn.cursor() as cur:
@@ -851,6 +859,41 @@ def update_usuario(
             except supabase_admin.SupabaseAdminError as exc:
                 raise HTTPException(status_code=502, detail=exc.message) from exc
 
+        if perfil_acesso_id is not None:
+            # Troca o perfil em todos os vinculos ja existentes do usuario e
+            # concede o novo perfil em qualquer licenca ativa do escritorio
+            # que ele ainda nao tivesse (mesma logica do convite inicial).
+            cur.execute(
+                "update usuario_licencas set perfil_acesso_id = %s where usuario_id = %s;",
+                (str(perfil_acesso_id), str(usuario_id)),
+            )
+            cur.execute(
+                """
+                insert into usuario_licencas (usuario_id, licenca_id, perfil_acesso_id)
+                select %(usuario_id)s, l.id, %(perfil_acesso_id)s
+                from licencas l
+                where l.cliente_id = %(cliente_id)s
+                  and l.status = 'ativa'
+                  and not exists (
+                    select 1 from usuario_licencas ul
+                    where ul.usuario_id = %(usuario_id)s and ul.licenca_id = l.id
+                  )
+                on conflict do nothing;
+                """,
+                {
+                    "usuario_id": str(usuario_id),
+                    "cliente_id": str(row["cliente_id"]),
+                    "perfil_acesso_id": str(perfil_acesso_id),
+                },
+            )
+            conn.commit()
+
+        cur.execute(
+            "select perfil_acesso_id from usuario_licencas where usuario_id = %s limit 1;",
+            (str(usuario_id),),
+        )
+        perfil_row = cur.fetchone()
+        row["perfil_acesso_id"] = perfil_row["perfil_acesso_id"] if perfil_row else None
         row["convite_status"] = supabase_admin.get_users_status([str(usuario_id)])[str(usuario_id)]
         return row
 
