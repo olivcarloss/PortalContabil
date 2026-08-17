@@ -44,6 +44,7 @@ export interface PerfilAcesso {
   escopo: string;
   ativo: boolean;
   modulo_ids: string[];
+  menu_ids: string[];
 }
 
 export interface UsuarioPortal {

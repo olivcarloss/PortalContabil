@@ -8,7 +8,9 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   profile: MeProfile | null;
+  profileLoading: boolean;
   isAdmin: boolean;
+  hasMenu: (menuCodigo: string) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -19,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<MeProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth
@@ -39,13 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session) {
       setProfile(null);
+      setProfileLoading(false);
       return;
     }
+    setProfileLoading(true);
     adminApi
       .me()
       .then(setProfile)
-      .catch(() => setProfile(null));
+      .catch(() => setProfile(null))
+      .finally(() => setProfileLoading(false));
   }, [session]);
+
+  function hasMenu(menuCodigo: string) {
+    return profile?.menus.includes(menuCodigo) ?? false;
+  }
 
   async function signIn(email: string, password: string) {
     if (!isSupabaseConfigured) {
@@ -65,7 +75,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, profile, isAdmin: profile?.is_admin ?? false, signIn, signOut }}
+      value={{
+        session,
+        loading,
+        profile,
+        profileLoading,
+        isAdmin: profile?.is_admin ?? false,
+        hasMenu,
+        signIn,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,8 +1,10 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthProvider";
 import RequireAuth from "./components/RequireAuth";
+import RequireMenu from "./components/RequireMenu";
 import Shell from "./components/Shell";
 import Login from "./pages/Login";
+import Home from "./pages/Home";
 import AceitarConvite from "./pages/AceitarConvite";
 import EsqueciSenha from "./pages/EsqueciSenha";
 import RedefinirSenha from "./pages/RedefinirSenha";
@@ -15,6 +17,16 @@ import PerfisTab from "./pages/licensing/PerfisTab";
 import AccountingHome from "./pages/accounting/AccountingHome";
 import VisaoGeral from "./pages/admin/VisaoGeral";
 import Conciliacao from "./pages/admin/Conciliacao";
+import {
+  MENU_ADMIN_CONCILIACAO,
+  MENU_ADMIN_VISAO_GERAL,
+  MENU_LICENCIAMENTO_ESCRITORIOS,
+  MENU_LICENCIAMENTO_PERFIS,
+  MENU_LICENCIAMENTO_PRODUTOS,
+  MENU_LICENCIAMENTO_USUARIOS,
+  MENU_LICENCIAMENTO_VISAO_GERAL,
+  MENU_PORTAL_CONTABIL,
+} from "./auth/menus";
 
 export default function App() {
   return (
@@ -32,15 +44,71 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route path="/" element={<Navigate to="/contabil" replace />} />
-          <Route path="/visao-geral" element={<VisaoGeral />} />
-          <Route path="/conciliacao" element={<Conciliacao />} />
-          <Route path="/licenciamento" element={<OverviewTab />} />
-          <Route path="/licenciamento/produtos" element={<ProdutosTab />} />
-          <Route path="/licenciamento/clientes" element={<ClientesTab />} />
-          <Route path="/licenciamento/usuarios" element={<UsuariosTab />} />
-          <Route path="/licenciamento/perfis" element={<PerfisTab />} />
-          <Route path="/contabil" element={<AccountingHome />} />
+          <Route path="/" element={<Home />} />
+          <Route
+            path="/visao-geral"
+            element={
+              <RequireMenu menu={MENU_ADMIN_VISAO_GERAL}>
+                <VisaoGeral />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/conciliacao"
+            element={
+              <RequireMenu menu={MENU_ADMIN_CONCILIACAO}>
+                <Conciliacao />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/licenciamento"
+            element={
+              <RequireMenu menu={MENU_LICENCIAMENTO_VISAO_GERAL}>
+                <OverviewTab />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/licenciamento/produtos"
+            element={
+              <RequireMenu menu={MENU_LICENCIAMENTO_PRODUTOS}>
+                <ProdutosTab />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/licenciamento/clientes"
+            element={
+              <RequireMenu menu={MENU_LICENCIAMENTO_ESCRITORIOS}>
+                <ClientesTab />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/licenciamento/usuarios"
+            element={
+              <RequireMenu menu={MENU_LICENCIAMENTO_USUARIOS}>
+                <UsuariosTab />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/licenciamento/perfis"
+            element={
+              <RequireMenu menu={MENU_LICENCIAMENTO_PERFIS}>
+                <PerfisTab />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil"
+            element={
+              <RequireMenu menu={MENU_PORTAL_CONTABIL}>
+                <AccountingHome />
+              </RequireMenu>
+            }
+          />
         </Route>
       </Routes>
     </AuthProvider>

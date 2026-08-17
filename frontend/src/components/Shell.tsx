@@ -1,19 +1,30 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import {
+  MENU_ADMIN_VISAO_GERAL,
+  MENU_LICENCIAMENTO_ESCRITORIOS,
+  MENU_LICENCIAMENTO_PERFIS,
+  MENU_LICENCIAMENTO_PRODUTOS,
+  MENU_LICENCIAMENTO_USUARIOS,
+  MENU_LICENCIAMENTO_VISAO_GERAL,
+  MENU_PORTAL_CONTABIL,
+} from "../auth/menus";
 
 const LICENSING_LINKS = [
-  { to: "/licenciamento", label: "Visão geral", end: true },
-  { to: "/licenciamento/produtos", label: "Produtos" },
-  { to: "/licenciamento/clientes", label: "Escritórios (clientes)" },
-  { to: "/licenciamento/usuarios", label: "Usuários" },
-  { to: "/licenciamento/perfis", label: "Perfis de acesso" },
+  { to: "/licenciamento", label: "Visão geral", end: true, menu: MENU_LICENCIAMENTO_VISAO_GERAL },
+  { to: "/licenciamento/produtos", label: "Produtos", menu: MENU_LICENCIAMENTO_PRODUTOS },
+  { to: "/licenciamento/clientes", label: "Escritórios (clientes)", menu: MENU_LICENCIAMENTO_ESCRITORIOS },
+  { to: "/licenciamento/usuarios", label: "Usuários", menu: MENU_LICENCIAMENTO_USUARIOS },
+  { to: "/licenciamento/perfis", label: "Perfis de acesso", menu: MENU_LICENCIAMENTO_PERFIS },
 ];
 
 export default function Shell() {
-  const { session, signOut, isAdmin } = useAuth();
+  const { session, signOut, hasMenu } = useAuth();
   const location = useLocation();
   const [licensingOpen, setLicensingOpen] = useState(location.pathname.startsWith("/licenciamento"));
+
+  const visibleLicensingLinks = LICENSING_LINKS.filter((l) => hasMenu(l.menu));
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -45,45 +56,51 @@ export default function Shell() {
           />
         </Link>
         <nav style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-          {isAdmin && <SidebarLink to="/visao-geral" label="One Page de Produtos" />}
-
-          <button
-            onClick={() => setLicensingOpen((v) => !v)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0.6rem 0.8rem",
-              borderRadius: "var(--radius-sm)",
-              color: "white",
-              background: "transparent",
-              border: "none",
-              font: "inherit",
-              fontSize: "0.95rem",
-              textAlign: "left",
-            }}
-          >
-            Portal de Licenciamento
-            <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>{licensingOpen ? "▾" : "▸"}</span>
-          </button>
-          {licensingOpen && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.15rem",
-                marginLeft: "0.75rem",
-                paddingLeft: "0.75rem",
-                borderLeft: "1px solid rgba(255,255,255,0.15)",
-              }}
-            >
-              {LICENSING_LINKS.map((l) => (
-                <SidebarLink key={l.to} to={l.to} label={l.label} end={l.end} compact />
-              ))}
-            </div>
+          {hasMenu(MENU_ADMIN_VISAO_GERAL) && (
+            <SidebarLink to="/visao-geral" label="One Page de Produtos" />
           )}
 
-          <SidebarLink to="/contabil" label="Portal Contábil" />
+          {visibleLicensingLinks.length > 0 && (
+            <>
+              <button
+                onClick={() => setLicensingOpen((v) => !v)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "0.6rem 0.8rem",
+                  borderRadius: "var(--radius-sm)",
+                  color: "white",
+                  background: "transparent",
+                  border: "none",
+                  font: "inherit",
+                  fontSize: "0.95rem",
+                  textAlign: "left",
+                }}
+              >
+                Portal de Licenciamento
+                <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>{licensingOpen ? "▾" : "▸"}</span>
+              </button>
+              {licensingOpen && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.15rem",
+                    marginLeft: "0.75rem",
+                    paddingLeft: "0.75rem",
+                    borderLeft: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  {visibleLicensingLinks.map((l) => (
+                    <SidebarLink key={l.to} to={l.to} label={l.label} end={l.end} compact />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {hasMenu(MENU_PORTAL_CONTABIL) && <SidebarLink to="/contabil" label="Portal Contábil" />}
         </nav>
         <div style={{ marginTop: "auto", fontSize: "0.85rem", opacity: 0.85 }}>
           <div style={{ marginBottom: "0.5rem" }}>{session?.user.email}</div>

@@ -39,10 +39,13 @@ export const licensingApi = {
     descricao?: string | null;
     escopo: string;
     modulo_ids: string[];
+    menu_ids: string[];
   }) => api.post<PerfilAcesso>("/licensing/perfis-acesso", payload),
   updatePerfilAcesso: (
     perfilId: string,
-    payload: Partial<Pick<PerfilAcesso, "nome" | "descricao" | "escopo" | "ativo" | "modulo_ids">>
+    payload: Partial<
+      Pick<PerfilAcesso, "nome" | "descricao" | "escopo" | "ativo" | "modulo_ids" | "menu_ids">
+    >
   ) => api.patch<PerfilAcesso>(`/licensing/perfis-acesso/${perfilId}`, payload),
   deletePerfilAcesso: (perfilId: string) =>
     api.delete<{ deleted: boolean; inativado: boolean }>(`/licensing/perfis-acesso/${perfilId}`),

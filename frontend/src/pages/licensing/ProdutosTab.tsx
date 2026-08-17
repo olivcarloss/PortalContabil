@@ -7,8 +7,11 @@ import type { Licenca, Modulo, Produto } from "../../api/types";
 import AtivacoesTab from "../../components/produto/AtivacoesTab";
 import ModulosTab from "../../components/produto/ModulosTab";
 import { gerarCodigoInterno } from "../../utils/codigo";
+import { useAuth } from "../../auth/AuthProvider";
+import { MENU_ADMIN_CONCILIACAO } from "../../auth/menus";
 
 export default function ProdutosTab() {
+  const { hasMenu } = useAuth();
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [modulosByProduto, setModulosByProduto] = useState<Record<string, Modulo[]>>({});
   const [licencas, setLicencas] = useState<Licenca[]>([]);
@@ -141,7 +144,7 @@ export default function ProdutosTab() {
                 >
                   Valor dos módulos
                 </button>
-                {p.codigo === "CONCILIACAO_CONTABIL" && (
+                {p.codigo === "CONCILIACAO_CONTABIL" && hasMenu(MENU_ADMIN_CONCILIACAO) && (
                   <Link to="/conciliacao" className="btn btn-secondary">
                     Ver sintético/analítico
                   </Link>

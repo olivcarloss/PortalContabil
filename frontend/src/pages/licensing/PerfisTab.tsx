@@ -3,6 +3,7 @@ import Modal, { Field } from "../../components/ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Modulo, PerfilAcesso, Produto } from "../../api/types";
 import { gerarCodigoInterno } from "../../utils/codigo";
+import { ALL_MENU_CODES, MENU_LABELS } from "../../auth/menus";
 
 export default function PerfisTab() {
   const [perfis, setPerfis] = useState<PerfilAcesso[]>([]);
@@ -107,6 +108,23 @@ export default function PerfisTab() {
                   }}
                 >
                   <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: "0.5rem" }}>
+                    Menus liberados
+                  </div>
+                  <div style={{ marginBottom: "0.8rem" }}>
+                    {p.menu_ids.length === 0 ? (
+                      <span style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+                        Nenhum menu liberado — este perfil não acessa nenhuma tela do portal.
+                      </span>
+                    ) : (
+                      p.menu_ids.map((menuId) => (
+                        <span key={menuId} className="chip">
+                          {MENU_LABELS[menuId] ?? menuId}
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginBottom: "0.5rem" }}>
                     Módulos liberados
                   </div>
                   {produtos.map((produto) => {
@@ -184,6 +202,7 @@ function PerfilFormModal({
   const [escopo, setEscopo] = useState(perfil?.escopo ?? "ambos");
   const [ativo, setAtivo] = useState(perfil?.ativo ?? true);
   const [selectedModulos, setSelectedModulos] = useState<Set<string>>(new Set(perfil?.modulo_ids ?? []));
+  const [selectedMenus, setSelectedMenus] = useState<Set<string>>(new Set(perfil?.menu_ids ?? []));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -205,6 +224,15 @@ function PerfilFormModal({
     setSelectedModulos(todosSelecionados ? new Set() : new Set(todosModuloIds));
   }
 
+  function toggleMenu(id: string) {
+    setSelectedMenus((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   async function handleSave() {
     if (!nome.trim()) {
       setError("Informe o nome do perfil.");
@@ -220,6 +248,7 @@ function PerfilFormModal({
           escopo,
           ativo,
           modulo_ids: [...selectedModulos],
+          menu_ids: [...selectedMenus],
         });
       } else {
         await licensingApi.createPerfilAcesso({
@@ -228,6 +257,7 @@ function PerfilFormModal({
           descricao: descricao.trim() || null,
           escopo,
           modulo_ids: [...selectedModulos],
+          menu_ids: [...selectedMenus],
         });
       }
       onSaved();
@@ -274,6 +304,23 @@ function PerfilFormModal({
           </select>
         </Field>
       )}
+      <Field
+        label="Menus liberados"
+        hint="Define quais telas do portal este perfil consegue abrir. Sem nenhum menu marcado, o usuário fica sem acesso a nada."
+      >
+        <div className="checklist">
+          {ALL_MENU_CODES.map((menuId) => (
+            <label key={menuId}>
+              <input
+                type="checkbox"
+                checked={selectedMenus.has(menuId)}
+                onChange={() => toggleMenu(menuId)}
+              />
+              {MENU_LABELS[menuId]}
+            </label>
+          ))}
+        </div>
+      </Field>
       <Field label="Módulos liberados" hint="Selecione as funcionalidades que este perfil pode acessar.">
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.4rem" }}>
           <button type="button" className="btn btn-secondary" onClick={toggleTodos} disabled={todosModuloIds.length === 0}>

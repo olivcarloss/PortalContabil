@@ -24,6 +24,7 @@ export interface MeProfile {
   nome: string | null;
   cliente_id: string | null;
   is_admin: boolean;
+  menus: string[];
 }
 
 export const adminApi = {
