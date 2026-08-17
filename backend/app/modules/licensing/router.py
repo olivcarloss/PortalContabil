@@ -770,18 +770,27 @@ def convidar_usuario(
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            insert into usuarios_portal (id, cliente_id, nome, ativo)
-            values (%(id)s, %(cliente_id)s, %(nome)s, true)
+            insert into usuarios_portal (id, cliente_id, nome, ativo, perfil_acesso_id)
+            values (%(id)s, %(cliente_id)s, %(nome)s, true, %(perfil_acesso_id)s)
             on conflict (id) do nothing
             returning *;
             """,
-            {"id": auth_user_id, "cliente_id": str(payload.cliente_id), "nome": payload.nome},
+            {
+                "id": auth_user_id,
+                "cliente_id": str(payload.cliente_id),
+                "nome": payload.nome,
+                "perfil_acesso_id": str(payload.perfil_acesso_id),
+            },
         )
         usuario = cur.fetchone()
         if usuario is None:
             cur.execute("select * from usuarios_portal where id = %s;", (auth_user_id,))
             usuario = cur.fetchone()
 
+        # usuario_licencas continua sendo concedida para as licencas ativas do
+        # escritorio (controla acesso por MODULO dentro delas) — mas o acesso a
+        # MENUS ja esta garantido acima via usuarios_portal.perfil_acesso_id,
+        # independente de existir alguma licenca ativa ou nao.
         cur.execute(
             "select id from licencas where cliente_id = %s and status = 'ativa';",
             (str(payload.cliente_id),),
@@ -797,7 +806,6 @@ def convidar_usuario(
             )
 
         conn.commit()
-        usuario["perfil_acesso_id"] = payload.perfil_acesso_id
         usuario["convite_status"] = supabase_admin.get_users_status([auth_user_id])[auth_user_id]
         return usuario
 
@@ -805,11 +813,7 @@ def convidar_usuario(
 @router.get("/usuarios", response_model=list[UsuarioPortal])
 def list_todos_usuarios(_: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute(
-            "select up.*, (select ul.perfil_acesso_id from usuario_licencas ul "
-            "where ul.usuario_id = up.id limit 1) as perfil_acesso_id "
-            "from usuarios_portal up order by up.nome;"
-        )
+        cur.execute("select * from usuarios_portal order by nome;")
         return _with_convite_status(cur.fetchall())
 
 
@@ -819,9 +823,7 @@ def list_usuarios(
 ):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "select up.*, (select ul.perfil_acesso_id from usuario_licencas ul "
-            "where ul.usuario_id = up.id limit 1) as perfil_acesso_id "
-            "from usuarios_portal up where up.cliente_id = %s order by up.nome;",
+            "select * from usuarios_portal where cliente_id = %s order by nome;",
             (cliente_id,),
         )
         return _with_convite_status(cur.fetchall())
@@ -835,8 +837,8 @@ def update_usuario(
 ):
     fields = payload.model_dump(exclude_unset=True)
     senha = fields.pop("senha", None)
-    perfil_acesso_id = fields.pop("perfil_acesso_id", None)
-    if not fields and senha is None and perfil_acesso_id is None:
+    perfil_acesso_id = fields.get("perfil_acesso_id")
+    if not fields and senha is None:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
 
     with get_conn() as conn, conn.cursor() as cur:
@@ -860,9 +862,10 @@ def update_usuario(
                 raise HTTPException(status_code=502, detail=exc.message) from exc
 
         if perfil_acesso_id is not None:
-            # Troca o perfil em todos os vinculos ja existentes do usuario e
-            # concede o novo perfil em qualquer licenca ativa do escritorio
-            # que ele ainda nao tivesse (mesma logica do convite inicial).
+            # usuarios_portal.perfil_acesso_id (acima) ja e a fonte de verdade
+            # para MENUS. Isso aqui e so para manter consistente o controle
+            # fino por MODULO dentro de licencas ja concedidas (usuario_licencas),
+            # que nao deve ficar com um perfil desatualizado depois da troca.
             cur.execute(
                 "update usuario_licencas set perfil_acesso_id = %s where usuario_id = %s;",
                 (str(perfil_acesso_id), str(usuario_id)),
@@ -888,12 +891,6 @@ def update_usuario(
             )
             conn.commit()
 
-        cur.execute(
-            "select perfil_acesso_id from usuario_licencas where usuario_id = %s limit 1;",
-            (str(usuario_id),),
-        )
-        perfil_row = cur.fetchone()
-        row["perfil_acesso_id"] = perfil_row["perfil_acesso_id"] if perfil_row else None
         row["convite_status"] = supabase_admin.get_users_status([str(usuario_id)])[str(usuario_id)]
         return row
 

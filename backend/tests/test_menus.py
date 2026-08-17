@@ -32,20 +32,28 @@ class FakeConn:
 
 
 def test_is_admin_bypasses_and_returns_every_menu():
-    conn = FakeConn([({"is_admin": True}, [])])
+    conn = FakeConn([({"is_admin": True, "perfil_acesso_id": None}, [])])
     assert get_menus_liberados(conn, "user-1") == set(ALL_MENU_CODES)
 
 
-def test_non_admin_gets_union_of_granted_menus():
+def test_non_admin_gets_menus_from_perfil_directly():
     conn = FakeConn(
         [
-            ({"is_admin": False}, []),
-            (None, [{"menu_codigo": "portal_contabil"}, {"menu_codigo": "licenciamento_produtos"}]),
+            ({"is_admin": False, "perfil_acesso_id": "perfil-1"}, []),
+            (
+                None,
+                [{"menu_codigo": "portal_contabil"}, {"menu_codigo": "licenciamento_produtos"}],
+            ),
         ]
     )
     assert get_menus_liberados(conn, "user-2") == {"portal_contabil", "licenciamento_produtos"}
 
 
-def test_no_usuarios_portal_row_and_no_grants_returns_empty_set():
-    conn = FakeConn([(None, []), (None, [])])
+def test_no_perfil_assigned_returns_empty_set_without_extra_query():
+    conn = FakeConn([({"is_admin": False, "perfil_acesso_id": None}, [])])
     assert get_menus_liberados(conn, "user-3") == set()
+
+
+def test_no_usuarios_portal_row_returns_empty_set():
+    conn = FakeConn([(None, [])])
+    assert get_menus_liberados(conn, "user-4") == set()

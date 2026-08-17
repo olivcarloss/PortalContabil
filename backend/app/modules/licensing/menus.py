@@ -2,9 +2,15 @@
 permissionamento por perfil de acesso (perfil_menu_permissoes).
 
 Um usuario enxerga/acessa um menu se: (a) usuarios_portal.is_admin = true
-(bypass total, superusuario da plataforma), OU (b) algum perfil_acesso
-concedido a ele via uma licenca ativa (usuario_licencas -> licencas ->
-perfis_acesso) inclui esse menu_codigo em perfil_menu_permissoes.
+(bypass total, superusuario da plataforma), OU (b) o perfil_acesso_id
+gravado diretamente em usuarios_portal inclui esse menu_codigo em
+perfil_menu_permissoes.
+
+Importante: isso e independente de o escritorio ter alguma licenca ativa —
+menu e uma propriedade do usuario/perfil, nao de uma licenca especifica.
+(usuario_licencas continua existindo e sendo usada separadamente para
+controle fino por MODULO dentro de uma licenca, ex. get_modulos_liberados —
+esse sim depende legitimamente de haver uma licenca ativa.)
 """
 
 from fastapi import Depends, HTTPException, status
@@ -38,21 +44,21 @@ ALL_MENU_CODES: list[str] = list(MENU_LABELS)
 def get_menus_liberados(conn, usuario_id: str) -> set[str]:
     """Menus que o usuario pode acessar. is_admin sempre libera tudo."""
     with conn.cursor() as cur:
-        cur.execute("select is_admin from usuarios_portal where id = %s;", (usuario_id,))
+        cur.execute(
+            "select is_admin, perfil_acesso_id from usuarios_portal where id = %s;",
+            (usuario_id,),
+        )
         row = cur.fetchone()
-        if row and row["is_admin"]:
+        if row is None:
+            return set()
+        if row["is_admin"]:
             return set(ALL_MENU_CODES)
+        if row["perfil_acesso_id"] is None:
+            return set()
 
         cur.execute(
-            """
-            select distinct pmp.menu_codigo
-            from usuario_licencas ul
-            join licencas l on l.id = ul.licenca_id
-            join perfis_acesso pa on pa.id = ul.perfil_acesso_id
-            join perfil_menu_permissoes pmp on pmp.perfil_id = pa.id
-            where ul.usuario_id = %s and l.status = 'ativa';
-            """,
-            (usuario_id,),
+            "select menu_codigo from perfil_menu_permissoes where perfil_id = %s;",
+            (row["perfil_acesso_id"],),
         )
         return {r["menu_codigo"] for r in cur.fetchall()}
 
