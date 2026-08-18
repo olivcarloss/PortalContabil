@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto, UsuarioPortal } from "../../api/types";
-
-const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatCurrency as currency, formatDate } from "../../utils/format";
 
 const STATUS_LABEL: Record<string, string> = {
   ativa: "Ativada",
@@ -169,7 +168,7 @@ export default function OverviewTab() {
           style={filtroAtivo === "receita" ? { borderColor: "var(--color-primary)" } : undefined}
         >
           <div className="eyebrow">Receita recorrente mensal</div>
-          <div className="val">{mrr.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>
+          <div className="val">{currency(mrr)}</div>
           <div className="delta">estimativa (licenças mensais ativas)</div>
         </div>
         <div className="stat-card">
@@ -274,8 +273,8 @@ export default function OverviewTab() {
                                 <td>{l.qtd_licencas}</td>
                                 <td>{currency(l.valor_total)}</td>
                                 <td>
-                                  {l.data_inicio}
-                                  {l.data_fim ? ` – ${l.data_fim}` : ""}
+                                  {formatDate(l.data_inicio)}
+                                  {l.data_fim ? ` – ${formatDate(l.data_fim)}` : ""}
                                 </td>
                                 <td>
                                   <span

@@ -4,6 +4,7 @@ import StatCard from "../../components/ui/StatCard";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
 import { formatCnpj, formatTelefone, normalizeTelefoneDigits, onlyDigits } from "../../utils/masks";
+import { formatCurrency } from "../../utils/format";
 
 const STATUS_LABEL: Record<string, string> = {
   ativa: "Ativada",
@@ -146,9 +147,7 @@ export default function ClientesTab() {
         />
         <StatCard
           eyebrow="Receita recorrente mensal"
-          value={Object.values(mrrByCliente)
-            .reduce((sum, n) => sum + n, 0)
-            .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          value={formatCurrency(Object.values(mrrByCliente).reduce((sum, n) => sum + n, 0))}
           delta="licenças mensais ativas, todos os escritórios"
           onClick={() => toggleFiltro("comReceita")}
           active={filtroAtivo === "comReceita"}
@@ -319,7 +318,7 @@ export default function ClientesTab() {
                   <td>{produtos.find((p) => p.id === l.produto_id)?.nome ?? l.produto_id}</td>
                   <td>{cnpjs.find((c) => c.id === l.cnpj_id)?.cnpj ?? "—"}</td>
                   <td>{l.qtd_licencas}</td>
-                  <td>{l.valor_total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
+                  <td>{formatCurrency(l.valor_total)}</td>
                   <td>
                     <span className={`badge badge-${l.status}`}>{STATUS_LABEL[l.status] ?? l.status}</span>
                   </td>

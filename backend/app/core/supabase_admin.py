@@ -82,10 +82,11 @@ def send_password_reset(user_id: str) -> None:
         raise SupabaseAdminError(message)
 
 
-def get_users_status(ids: list[str]) -> dict[str, str]:
-    """Returns {id: "pendente" | "ativo"} for each auth.users id, based on
-    whether the invite has been accepted (email_confirmed_at set)."""
-    result: dict[str, str] = {}
+def get_users_meta(ids: list[str]) -> dict[str, dict]:
+    """Returns {id: {"convite_status": "pendente"|"ativo", "email": str|None}}
+    for each auth.users id, based on whether the invite has been accepted
+    (email_confirmed_at set)."""
+    result: dict[str, dict] = {}
     for user_id in ids:
         resp = httpx.get(
             f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
@@ -93,8 +94,27 @@ def get_users_status(ids: list[str]) -> dict[str, str]:
             timeout=10,
         )
         if resp.status_code != 200:
-            result[user_id] = "pendente"
+            result[user_id] = {"convite_status": "pendente", "email": None}
             continue
         user = resp.json()
-        result[user_id] = "ativo" if user.get("email_confirmed_at") else "pendente"
+        result[user_id] = {
+            "convite_status": "ativo" if user.get("email_confirmed_at") else "pendente",
+            "email": user.get("email"),
+        }
     return result
+
+
+def update_user_email(user_id: str, email: str) -> None:
+    """Updates a user's login e-mail in Supabase Auth. Supabase re-confirms
+    the new address automatically (no e-mail step needed) since this is an
+    admin-initiated change."""
+    resp = httpx.put(
+        f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
+        headers=_headers(),
+        json={"email": email, "email_confirm": True},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        body = resp.json() if resp.content else {}
+        message = body.get("msg") or body.get("message") or body.get("error_description") or resp.text
+        raise SupabaseAdminError(message)

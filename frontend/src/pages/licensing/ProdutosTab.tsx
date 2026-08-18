@@ -7,6 +7,7 @@ import type { Licenca, Modulo, Produto } from "../../api/types";
 import AtivacoesTab from "../../components/produto/AtivacoesTab";
 import ModulosTab from "../../components/produto/ModulosTab";
 import { gerarCodigoInterno } from "../../utils/codigo";
+import { formatCurrency } from "../../utils/format";
 import { useAuth } from "../../auth/AuthProvider";
 import { MENU_ADMIN_CONCILIACAO } from "../../auth/menus";
 
@@ -87,10 +88,11 @@ export default function ProdutosTab() {
         />
         <StatCard
           eyebrow="Receita recorrente mensal"
-          value={licencas
-            .filter((l) => l.status === "ativa" && l.periodicidade === "mensal")
-            .reduce((sum, l) => sum + l.valor_total, 0)
-            .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          value={formatCurrency(
+            licencas
+              .filter((l) => l.status === "ativa" && l.periodicidade === "mensal")
+              .reduce((sum, l) => sum + l.valor_total, 0)
+          )}
           delta="licenças mensais ativas, todos os produtos"
         />
       </div>

@@ -4,6 +4,7 @@ import type {
   Cnpj,
   Licenca,
   Modulo,
+  Papel,
   PerfilAcesso,
   Produto,
   UsuarioPortal,
@@ -59,6 +60,8 @@ export const licensingApi = {
 
   listCnpjs: (clienteId: string) =>
     api.get<Cnpj[]>(`/licensing/clientes/${clienteId}/cnpjs`),
+  listCnpjsTodos: (clienteId?: string) =>
+    api.get<Cnpj[]>(`/licensing/cnpjs${clienteId ? `?cliente_id=${clienteId}` : ""}`),
   createCnpj: (payload: Partial<Cnpj>) => api.post<Cnpj>("/licensing/cnpjs", payload),
   updateCnpj: (
     cnpjId: string,
@@ -94,10 +97,13 @@ export const licensingApi = {
     senha: string;
     cliente_id: string;
     perfil_acesso_id: string;
+    papel?: Papel;
   }) => api.post<UsuarioPortal>("/licensing/usuarios/convite", payload),
   updateUsuario: (
     usuarioId: string,
-    payload: Partial<Pick<UsuarioPortal, "nome" | "cargo" | "ativo" | "perfil_acesso_id">> & {
+    payload: Partial<
+      Pick<UsuarioPortal, "nome" | "cargo" | "ativo" | "perfil_acesso_id" | "email" | "papel">
+    > & {
       senha?: string;
     }
   ) => api.patch<UsuarioPortal>(`/licensing/usuarios/${usuarioId}`, payload),
@@ -105,4 +111,15 @@ export const licensingApi = {
     api.delete<{ deleted: boolean; inativado: boolean }>(`/licensing/usuarios/${usuarioId}`),
   solicitarSenhaUsuario: (usuarioId: string) =>
     api.post<{ enviado: boolean }>(`/licensing/usuarios/${usuarioId}/solicitar-senha`, {}),
+  setEscritoriosAdministrados: (usuarioId: string, clienteIds: string[]) =>
+    api.put<UsuarioPortal>(`/licensing/usuarios/${usuarioId}/escritorios-administrados`, {
+      cliente_ids: clienteIds,
+    }),
+  getModulosUsuario: (usuarioId: string, licencaId: string) =>
+    api.get<string[]>(`/licensing/usuarios/${usuarioId}/modulos?licenca_id=${licencaId}`),
+  setModulosUsuario: (usuarioId: string, licencaId: string, moduloIds: string[]) =>
+    api.put<{ licenca_id: string; modulo_ids: string[] }>(
+      `/licensing/usuarios/${usuarioId}/modulos`,
+      { licenca_id: licencaId, modulo_ids: moduloIds }
+    ),
 };

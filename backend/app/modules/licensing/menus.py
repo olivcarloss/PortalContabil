@@ -1,7 +1,7 @@
 """Catalogo fixo de menus/submenus do portal, usados como unidade de
 permissionamento por perfil de acesso (perfil_menu_permissoes).
 
-Um usuario enxerga/acessa um menu se: (a) usuarios_portal.is_admin = true
+Um usuario enxerga/acessa um menu se: (a) usuarios_portal.papel == 'master'
 (bypass total, superusuario da plataforma), OU (b) o perfil_acesso_id
 gravado diretamente em usuarios_portal inclui esse menu_codigo em
 perfil_menu_permissoes.
@@ -26,6 +26,13 @@ MENU_LICENCIAMENTO_ESCRITORIOS = "licenciamento_escritorios"
 MENU_LICENCIAMENTO_USUARIOS = "licenciamento_usuarios"
 MENU_LICENCIAMENTO_PERFIS = "licenciamento_perfis"
 MENU_PORTAL_CONTABIL = "portal_contabil"
+MENU_RELATORIO_SINTETICO = "relatorio_sintetico"
+MENU_RELATORIO_ANALITICO = "relatorio_analitico"
+MENU_RELATORIO_ESCRITORIOS = "relatorio_escritorios"
+MENU_RELATORIO_CLIENTES = "relatorio_clientes"
+MENU_RELATORIO_PRODUTOS = "relatorio_produtos"
+MENU_RELATORIO_MODULOS = "relatorio_modulos"
+MENU_RELATORIO_TABELA_PRECOS = "relatorio_tabela_precos"
 
 MENU_LABELS: dict[str, str] = {
     MENU_ADMIN_VISAO_GERAL: "One Page de Produtos",
@@ -36,22 +43,29 @@ MENU_LABELS: dict[str, str] = {
     MENU_LICENCIAMENTO_USUARIOS: "Licenciamento — Usuários",
     MENU_LICENCIAMENTO_PERFIS: "Licenciamento — Perfis de acesso",
     MENU_PORTAL_CONTABIL: "Portal Contábil",
+    MENU_RELATORIO_SINTETICO: "Relatórios — Sintético",
+    MENU_RELATORIO_ANALITICO: "Relatórios — Analítico",
+    MENU_RELATORIO_ESCRITORIOS: "Relatórios — Escritórios",
+    MENU_RELATORIO_CLIENTES: "Relatórios — Clientes",
+    MENU_RELATORIO_PRODUTOS: "Relatórios — Produtos",
+    MENU_RELATORIO_MODULOS: "Relatórios — Módulos",
+    MENU_RELATORIO_TABELA_PRECOS: "Relatórios — Tabela de Preços",
 }
 
 ALL_MENU_CODES: list[str] = list(MENU_LABELS)
 
 
 def get_menus_liberados(conn, usuario_id: str) -> set[str]:
-    """Menus que o usuario pode acessar. is_admin sempre libera tudo."""
+    """Menus que o usuario pode acessar. papel == 'master' sempre libera tudo."""
     with conn.cursor() as cur:
         cur.execute(
-            "select is_admin, perfil_acesso_id from usuarios_portal where id = %s;",
+            "select papel, perfil_acesso_id from usuarios_portal where id = %s;",
             (usuario_id,),
         )
         row = cur.fetchone()
         if row is None:
             return set()
-        if row["is_admin"]:
+        if row["papel"] == "master":
             return set(ALL_MENU_CODES)
         if row["perfil_acesso_id"] is None:
             return set()

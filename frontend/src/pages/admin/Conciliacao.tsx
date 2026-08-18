@@ -4,13 +4,11 @@ import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, ConciliacaoSintetico, LancamentoAnalitico, Produto } from "../../api/types";
 import AtivacoesTab from "../../components/produto/AtivacoesTab";
 import ModulosTab from "../../components/produto/ModulosTab";
+import { formatCurrency as currency, formatDate } from "../../utils/format";
 
 const MESES = [
   "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ];
-
-const currency = (v: number | null) =>
-  (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 type View = "ativacoes" | "modulos" | "sintetico" | "analitico";
 
@@ -256,7 +254,7 @@ export default function Conciliacao() {
             <tbody>
               {lancamentos.map((l) => (
                 <tr key={l.lancamento_id}>
-                  <td>{l.data_lancamento}</td>
+                  <td>{formatDate(l.data_lancamento)}</td>
                   <td>{l.conta_contabil}</td>
                   <td>{l.historico}</td>
                   <td>{l.documento}</td>

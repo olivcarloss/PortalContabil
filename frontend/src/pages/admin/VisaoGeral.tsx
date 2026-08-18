@@ -3,8 +3,7 @@ import { adminApi } from "../../api/admin";
 import type { Overview } from "../../api/types";
 import BarChart from "../../components/charts/BarChart";
 import StatusChart from "../../components/charts/StatusChart";
-
-const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatCurrency as currency } from "../../utils/format";
 
 export default function VisaoGeral() {
   const [data, setData] = useState<Overview | null>(null);

@@ -9,6 +9,13 @@ import {
   MENU_LICENCIAMENTO_USUARIOS,
   MENU_LICENCIAMENTO_VISAO_GERAL,
   MENU_PORTAL_CONTABIL,
+  MENU_RELATORIO_ANALITICO,
+  MENU_RELATORIO_CLIENTES,
+  MENU_RELATORIO_ESCRITORIOS,
+  MENU_RELATORIO_MODULOS,
+  MENU_RELATORIO_PRODUTOS,
+  MENU_RELATORIO_SINTETICO,
+  MENU_RELATORIO_TABELA_PRECOS,
 } from "../auth/menus";
 
 const LICENSING_LINKS = [
@@ -19,12 +26,24 @@ const LICENSING_LINKS = [
   { to: "/licenciamento/perfis", label: "Perfis de acesso", menu: MENU_LICENCIAMENTO_PERFIS },
 ];
 
+const REPORT_LINKS = [
+  { to: "/contabil/relatorios/sintetico", label: "Sintético", menu: MENU_RELATORIO_SINTETICO },
+  { to: "/contabil/relatorios/analitico", label: "Analítico", menu: MENU_RELATORIO_ANALITICO },
+  { to: "/contabil/relatorios/escritorios", label: "Escritórios", menu: MENU_RELATORIO_ESCRITORIOS },
+  { to: "/contabil/relatorios/clientes", label: "Clientes", menu: MENU_RELATORIO_CLIENTES },
+  { to: "/contabil/relatorios/produtos", label: "Produtos", menu: MENU_RELATORIO_PRODUTOS },
+  { to: "/contabil/relatorios/modulos", label: "Módulos", menu: MENU_RELATORIO_MODULOS },
+  { to: "/contabil/relatorios/tabela-precos", label: "Tabela de Preços", menu: MENU_RELATORIO_TABELA_PRECOS },
+];
+
 export default function Shell() {
   const { session, signOut, hasMenu } = useAuth();
   const location = useLocation();
   const [licensingOpen, setLicensingOpen] = useState(location.pathname.startsWith("/licenciamento"));
+  const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith("/contabil/relatorios"));
 
   const visibleLicensingLinks = LICENSING_LINKS.filter((l) => hasMenu(l.menu));
+  const visibleReportLinks = REPORT_LINKS.filter((l) => hasMenu(l.menu));
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -101,6 +120,46 @@ export default function Shell() {
           )}
 
           {hasMenu(MENU_PORTAL_CONTABIL) && <SidebarLink to="/contabil" label="Portal Contábil" />}
+
+          {visibleReportLinks.length > 0 && (
+            <>
+              <button
+                onClick={() => setReportsOpen((v) => !v)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "0.6rem 0.8rem",
+                  borderRadius: "var(--radius-sm)",
+                  color: "white",
+                  background: "transparent",
+                  border: "none",
+                  font: "inherit",
+                  fontSize: "0.95rem",
+                  textAlign: "left",
+                }}
+              >
+                Relatórios
+                <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>{reportsOpen ? "▾" : "▸"}</span>
+              </button>
+              {reportsOpen && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.15rem",
+                    marginLeft: "0.75rem",
+                    paddingLeft: "0.75rem",
+                    borderLeft: "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  {visibleReportLinks.map((l) => (
+                    <SidebarLink key={l.to} to={l.to} label={l.label} compact />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </nav>
         <div style={{ marginTop: "auto", fontSize: "0.85rem", opacity: 0.85 }}>
           <div style={{ marginBottom: "0.5rem" }}>{session?.user.email}</div>

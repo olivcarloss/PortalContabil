@@ -31,15 +31,15 @@ class FakeConn:
         return self._cursor
 
 
-def test_is_admin_bypasses_and_returns_every_menu():
-    conn = FakeConn([({"is_admin": True, "perfil_acesso_id": None}, [])])
+def test_master_bypasses_and_returns_every_menu():
+    conn = FakeConn([({"papel": "master", "perfil_acesso_id": None}, [])])
     assert get_menus_liberados(conn, "user-1") == set(ALL_MENU_CODES)
 
 
-def test_non_admin_gets_menus_from_perfil_directly():
+def test_non_master_gets_menus_from_perfil_directly():
     conn = FakeConn(
         [
-            ({"is_admin": False, "perfil_acesso_id": "perfil-1"}, []),
+            ({"papel": "usuario", "perfil_acesso_id": "perfil-1"}, []),
             (
                 None,
                 [{"menu_codigo": "portal_contabil"}, {"menu_codigo": "licenciamento_produtos"}],
@@ -49,8 +49,8 @@ def test_non_admin_gets_menus_from_perfil_directly():
     assert get_menus_liberados(conn, "user-2") == {"portal_contabil", "licenciamento_produtos"}
 
 
-def test_no_perfil_assigned_returns_empty_set_without_extra_query():
-    conn = FakeConn([({"is_admin": False, "perfil_acesso_id": None}, [])])
+def test_administrador_without_perfil_returns_empty_set_without_extra_query():
+    conn = FakeConn([({"papel": "administrador", "perfil_acesso_id": None}, [])])
     assert get_menus_liberados(conn, "user-3") == set()
 
 

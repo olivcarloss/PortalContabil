@@ -2,11 +2,7 @@ import { useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../ui/Modal";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Modulo, Produto } from "../../api/types";
-
-const currency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const formatDateTime = (iso: string) =>
-  new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+import { formatCurrency as currency, formatDate, formatDateTime } from "../../utils/format";
 
 function umAnoApos(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00`);
@@ -93,7 +89,7 @@ export default function AtivacoesTab({
                 <td>{row.licenca ? currency(row.licenca.valor_total) : "—"}</td>
                 <td>
                   {row.licenca
-                    ? `${row.licenca.data_inicio} ${row.licenca.data_fim ? `– ${row.licenca.data_fim}` : "(sem fim)"}`
+                    ? `${formatDate(row.licenca.data_inicio)} ${row.licenca.data_fim ? `– ${formatDate(row.licenca.data_fim)}` : "(sem fim)"}`
                     : "—"}
                   {row.licenca?.ultima_renovacao_em && (
                     <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
@@ -275,7 +271,7 @@ function AtivarModal({
       <FieldRow>
         <Field label="Valor calculado">
           <input
-            value={valorCalculado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            value={currency(valorCalculado)}
             disabled
           />
         </Field>

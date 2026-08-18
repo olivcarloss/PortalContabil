@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -187,6 +188,7 @@ class UsuarioConviteCreate(BaseModel):
     senha: str = Field(min_length=8)
     cliente_id: UUID
     perfil_acesso_id: UUID
+    papel: Literal["master", "administrador", "usuario"] = "usuario"
 
 
 class UsuarioPortalUpdate(BaseModel):
@@ -195,6 +197,8 @@ class UsuarioPortalUpdate(BaseModel):
     ativo: bool | None = None
     senha: str | None = Field(default=None, min_length=8)
     perfil_acesso_id: UUID | None = None
+    email: str | None = None
+    papel: Literal["master", "administrador", "usuario"] | None = None
 
 
 class UsuarioPortal(UsuarioPortalBase):
@@ -202,6 +206,18 @@ class UsuarioPortal(UsuarioPortalBase):
     atualizado_em: datetime
     convite_status: str = "ativo"
     perfil_acesso_id: UUID | None = None
+    email: str | None = None
+    papel: Literal["master", "administrador", "usuario"] = "usuario"
+    escritorios_administrados: list[UUID] = Field(default_factory=list)
+
+
+class EscritoriosAdministradosUpdate(BaseModel):
+    cliente_ids: list[UUID]
+
+
+class ModulosUsuarioUpdate(BaseModel):
+    licenca_id: UUID
+    modulo_ids: list[UUID]
 
 
 class UsuarioLicencaCreate(BaseModel):

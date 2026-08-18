@@ -7,12 +7,22 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core import supabase_admin
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
+from app.modules.licensing.escopo import (
+    get_escopo,
+    get_usuario_cliente_id,
+    require_escopo_cliente,
+    require_papel_master,
+)
 from app.modules.licensing.menus import (
     MENU_LICENCIAMENTO_ESCRITORIOS,
     MENU_LICENCIAMENTO_PERFIS,
     MENU_LICENCIAMENTO_PRODUTOS,
     MENU_LICENCIAMENTO_USUARIOS,
     MENU_LICENCIAMENTO_VISAO_GERAL,
+    MENU_RELATORIO_CLIENTES,
+    MENU_RELATORIO_ESCRITORIOS,
+    MENU_RELATORIO_PRODUTOS,
+    MENU_RELATORIO_TABELA_PRECOS,
     require_menu,
 )
 from app.modules.licensing.renovacao import renovar_licencas_vencidas
@@ -36,9 +46,11 @@ from app.schemas.licensing import (
     Cnpj,
     CnpjCreate,
     CnpjUpdate,
+    EscritoriosAdministradosUpdate,
     Licenca,
     LicencaCreate,
     LicencaUpdate,
+    ModulosUsuarioUpdate,
     Modulo,
     ModuloCreate,
     ModuloUpdate,
@@ -70,7 +82,9 @@ def _um_ano_apos(d: date) -> date:
 # Produtos
 # ============================================================
 @router.get("/produtos", response_model=list[Produto])
-def list_produtos(_: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))):
+def list_produtos(
+    _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO, MENU_RELATORIO_TABELA_PRECOS)),
+):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("select * from produtos order by ativo desc, nome;")
         return cur.fetchall()
@@ -146,7 +160,8 @@ def delete_produto(
 
 @router.get("/produtos/{produto_id}/modulos", response_model=list[Modulo])
 def list_modulos(
-    produto_id: UUID, _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))
+    produto_id: UUID,
+    _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO, MENU_RELATORIO_TABELA_PRECOS)),
 ):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
@@ -407,17 +422,37 @@ def delete_perfil_acesso(
 # Clientes (escritorios)
 # ============================================================
 @router.get("/clientes", response_model=list[Cliente])
-def list_clientes(_: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))):
+def list_clientes(
+    user: CurrentUser = Depends(
+        require_menu(*_QUALQUER_MENU_LICENCIAMENTO, MENU_RELATORIO_ESCRITORIOS)
+    ),
+):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select * from clientes order by nome;")
+        papel, escopo = get_escopo(conn, user.id)
+        if papel == "master":
+            cur.execute("select * from clientes order by nome;")
+        elif papel == "administrador":
+            cur.execute(
+                "select * from clientes where id = any(%s::uuid[]) order by nome;",
+                (list(escopo),),
+            )
+        else:
+            proprio_cliente_id = get_usuario_cliente_id(conn, user.id)
+            cur.execute(
+                "select * from clientes where id = %s order by nome;",
+                (proprio_cliente_id,),
+            )
         return cur.fetchall()
 
 
 @router.post("/clientes", response_model=Cliente, status_code=status.HTTP_201_CREATED)
 def create_cliente(
     payload: ClienteCreate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
 ):
+    with get_conn() as conn:
+        papel, _ = get_escopo(conn, user.id)
+        require_papel_master(papel)
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -436,8 +471,11 @@ def create_cliente(
 def update_cliente(
     cliente_id: UUID,
     payload: ClienteUpdate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
 ):
+    with get_conn() as conn:
+        papel, _ = get_escopo(conn, user.id)
+        require_papel_master(papel)
     fields = payload.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
@@ -456,11 +494,14 @@ def update_cliente(
 
 @router.delete("/clientes/{cliente_id}", response_model=Cliente)
 def delete_cliente(
-    cliente_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
+    cliente_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
 ):
     """Inativa o escritorio (soft delete) em vez de excluir fisicamente: exclusao
     fisica faria cascade em cnpjs/licencas/usuarios e apagaria conciliacoes e
     lancamentos contabeis reais desses CNPJs."""
+    with get_conn() as conn:
+        papel, _ = get_escopo(conn, user.id)
+        require_papel_master(papel)
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             "update clientes set ativo = false where id = %s returning *;", (cliente_id,)
@@ -475,11 +516,60 @@ def delete_cliente(
 # ============================================================
 # CNPJs
 # ============================================================
+@router.get("/cnpjs", response_model=list[Cnpj])
+def list_cnpjs_todos(
+    cliente_id: UUID | None = None,
+    user: CurrentUser = Depends(
+        require_menu(*_QUALQUER_MENU_LICENCIAMENTO, MENU_RELATORIO_CLIENTES)
+    ),
+):
+    """CNPJs agregados — sem exigir um cliente_id fixo, ao contrario de
+    /clientes/{cliente_id}/cnpjs. Usado pelo relatorio 'Clientes' do Portal
+    Contabil, que precisa dos CNPJs de todos os escritorios no escopo do
+    usuario de uma vez."""
+    with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        if cliente_id:
+            require_escopo_cliente(str(cliente_id), papel, escopo)
+            cur.execute(
+                "select * from cnpjs where cliente_id = %s order by razao_social;",
+                (cliente_id,),
+            )
+        elif papel == "administrador":
+            cur.execute(
+                "select * from cnpjs where cliente_id = any(%s::uuid[]) order by razao_social;",
+                (list(escopo),),
+            )
+        elif papel == "master":
+            cur.execute("select * from cnpjs order by razao_social;")
+        else:
+            # usuario comum: so os CNPJs cobertos por licencas vinculadas a
+            # ele via usuario_licencas (por_cnpj direto, ou por_cliente
+            # abrangendo todos os CNPJs ativos do escritorio).
+            cur.execute(
+                """
+                select distinct c.*
+                from cnpjs c
+                join licencas l on (
+                    (l.cnpj_id = c.id)
+                    or (l.cnpj_id is null and l.cliente_id = c.cliente_id and c.ativo)
+                )
+                join usuario_licencas ul on ul.licenca_id = l.id
+                where ul.usuario_id = %s
+                order by c.razao_social;
+                """,
+                (user.id,),
+            )
+        return cur.fetchall()
+
+
 @router.get("/clientes/{cliente_id}/cnpjs", response_model=list[Cnpj])
 def list_cnpjs(
-    cliente_id: UUID, _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))
+    cliente_id: UUID, user: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO))
 ):
     with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        require_escopo_cliente(str(cliente_id), papel, escopo)
         cur.execute(
             "select * from cnpjs where cliente_id = %s order by razao_social;",
             (cliente_id,),
@@ -489,9 +579,11 @@ def list_cnpjs(
 
 @router.post("/cnpjs", response_model=Cnpj, status_code=status.HTTP_201_CREATED)
 def create_cnpj(
-    payload: CnpjCreate, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
+    payload: CnpjCreate, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
 ):
     with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        require_escopo_cliente(str(payload.cliente_id), papel, escopo)
         cur.execute(
             """
             insert into cnpjs (cliente_id, cnpj, razao_social, nome_fantasia, email_contato, telefone, ativo)
@@ -505,11 +597,19 @@ def create_cnpj(
         return row
 
 
+def _cnpj_cliente_id(cur, cnpj_id: UUID) -> str:
+    cur.execute("select cliente_id from cnpjs where id = %s;", (cnpj_id,))
+    row = cur.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Cliente (CNPJ) nao encontrado")
+    return str(row["cliente_id"])
+
+
 @router.patch("/cnpjs/{cnpj_id}", response_model=Cnpj)
 def update_cnpj(
     cnpj_id: UUID,
     payload: CnpjUpdate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     if not fields:
@@ -517,6 +617,8 @@ def update_cnpj(
     set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
     fields["id"] = str(cnpj_id)
     with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        require_escopo_cliente(_cnpj_cliente_id(cur, cnpj_id), papel, escopo)
         cur.execute(f"update cnpjs set {set_clause} where id = %(id)s returning *;", fields)
         row = cur.fetchone()
         if row is None:
@@ -527,11 +629,13 @@ def update_cnpj(
 
 @router.delete("/cnpjs/{cnpj_id}", response_model=Cnpj)
 def delete_cnpj(
-    cnpj_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
+    cnpj_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
 ):
     """Inativa o cliente/CNPJ (soft delete): exclusao fisica faria cascade em
     conciliacoes e lancamentos contabeis reais desse CNPJ."""
     with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        require_escopo_cliente(_cnpj_cliente_id(cur, cnpj_id), papel, escopo)
         cur.execute(
             "update cnpjs set ativo = false where id = %s returning *;", (cnpj_id,)
         )
@@ -549,7 +653,9 @@ def delete_cnpj(
 def list_licencas(
     cliente_id: UUID | None = None,
     produto_id: UUID | None = None,
-    _: CurrentUser = Depends(require_menu(*_QUALQUER_MENU_LICENCIAMENTO)),
+    user: CurrentUser = Depends(
+        require_menu(*_QUALQUER_MENU_LICENCIAMENTO, MENU_RELATORIO_PRODUTOS)
+    ),
 ):
     filters = []
     params: dict = {}
@@ -559,9 +665,21 @@ def list_licencas(
     if produto_id:
         filters.append("l.produto_id = %(produto_id)s")
         params["produto_id"] = str(produto_id)
-    where_clause = f"where {' and '.join(filters)}" if filters else ""
 
     with get_conn() as conn:
+        papel, escopo = get_escopo(conn, user.id)
+        if cliente_id:
+            require_escopo_cliente(str(cliente_id), papel, escopo)
+        elif papel == "administrador":
+            filters.append("l.cliente_id = any(%(escopo)s::uuid[])")
+            params["escopo"] = list(escopo)
+        elif papel == "usuario":
+            filters.append(
+                "l.id in (select licenca_id from usuario_licencas where usuario_id = %(usuario_id)s)"
+            )
+            params["usuario_id"] = user.id
+        where_clause = f"where {' and '.join(filters)}" if filters else ""
+
         renovar_licencas_vencidas(conn)
         with conn.cursor() as cur:
             cur.execute(
@@ -584,8 +702,11 @@ def list_licencas(
 @router.post("/licencas", response_model=Licenca, status_code=status.HTTP_201_CREATED)
 def create_licenca(
     payload: LicencaCreate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
 ):
+    with get_conn() as conn:
+        papel, _ = get_escopo(conn, user.id)
+        require_papel_master(papel)
     if not payload.modulo_ids:
         raise HTTPException(
             status_code=422, detail="Selecione ao menos um modulo para ativar a licenca"
@@ -663,8 +784,11 @@ def create_licenca(
 def update_licenca(
     licenca_id: UUID,
     payload: LicencaUpdate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PRODUTOS)),
 ):
+    with get_conn() as conn:
+        papel, _ = get_escopo(conn, user.id)
+        require_papel_master(papel)
     fields = payload.model_dump(exclude_unset=True)
     modulo_ids = fields.pop("modulo_ids", None)
     if not fields and modulo_ids is None:
@@ -744,13 +868,48 @@ def update_licenca(
 # ============================================================
 # Usuarios do portal
 # ============================================================
-def _with_convite_status(rows: list[dict]) -> list[dict]:
+def _with_auth_meta(rows: list[dict]) -> list[dict]:
     if not rows:
         return rows
-    status_by_id = supabase_admin.get_users_status([str(r["id"]) for r in rows])
+    meta_by_id = supabase_admin.get_users_meta([str(r["id"]) for r in rows])
     for row in rows:
-        row["convite_status"] = status_by_id.get(str(row["id"]), "pendente")
+        meta = meta_by_id.get(str(row["id"]), {"convite_status": "pendente", "email": None})
+        row["convite_status"] = meta["convite_status"]
+        row["email"] = meta["email"]
     return rows
+
+
+def _with_escritorios_administrados(cur, rows: list[dict]) -> list[dict]:
+    """Preenche escritorios_administrados para as linhas com papel
+    'administrador'; demais ficam com lista vazia (default do schema)."""
+    ids = [str(r["id"]) for r in rows if r.get("papel") == "administrador"]
+    if not ids:
+        return rows
+    cur.execute(
+        "select usuario_id, cliente_id from administrador_clientes where usuario_id = any(%s::uuid[]);",
+        (ids,),
+    )
+    por_usuario: dict[str, list] = {}
+    for r in cur.fetchall():
+        por_usuario.setdefault(str(r["usuario_id"]), []).append(r["cliente_id"])
+    for row in rows:
+        row["escritorios_administrados"] = por_usuario.get(str(row["id"]), [])
+    return rows
+
+
+def _validar_papel_alvo(papel_alvo: str, papel_ator: str | None) -> None:
+    """So master atribui papel master; administrador ou master atribuem
+    administrador; qualquer ator com acesso ao menu atribui usuario."""
+    if papel_alvo == "master" and papel_ator != "master":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Somente o Master pode atribuir o papel Master",
+        )
+    if papel_alvo == "administrador" and papel_ator not in ("master", "administrador"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voce nao tem permissao para atribuir o papel Administrador",
+        )
 
 
 @router.post(
@@ -758,8 +917,13 @@ def _with_convite_status(rows: list[dict]) -> list[dict]:
 )
 def convidar_usuario(
     payload: UsuarioConviteCreate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
 ):
+    with get_conn() as conn:
+        papel_ator, escopo = get_escopo(conn, user.id)
+        require_escopo_cliente(str(payload.cliente_id), papel_ator, escopo)
+        _validar_papel_alvo(payload.papel, papel_ator)
+
     try:
         auth_user_id = supabase_admin.create_user_with_password(
             payload.email, payload.nome, payload.senha
@@ -770,8 +934,8 @@ def convidar_usuario(
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            insert into usuarios_portal (id, cliente_id, nome, ativo, perfil_acesso_id)
-            values (%(id)s, %(cliente_id)s, %(nome)s, true, %(perfil_acesso_id)s)
+            insert into usuarios_portal (id, cliente_id, nome, ativo, perfil_acesso_id, papel)
+            values (%(id)s, %(cliente_id)s, %(nome)s, true, %(perfil_acesso_id)s, %(papel)s)
             on conflict (id) do nothing
             returning *;
             """,
@@ -780,6 +944,7 @@ def convidar_usuario(
                 "cliente_id": str(payload.cliente_id),
                 "nome": payload.nome,
                 "perfil_acesso_id": str(payload.perfil_acesso_id),
+                "papel": payload.papel,
             },
         )
         usuario = cur.fetchone()
@@ -806,42 +971,66 @@ def convidar_usuario(
             )
 
         conn.commit()
-        usuario["convite_status"] = supabase_admin.get_users_status([auth_user_id])[auth_user_id]
+        meta = supabase_admin.get_users_meta([auth_user_id])[auth_user_id]
+        usuario["convite_status"] = meta["convite_status"]
+        usuario["email"] = meta["email"]
         return usuario
 
 
 @router.get("/usuarios", response_model=list[UsuarioPortal])
-def list_todos_usuarios(_: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))):
+def list_todos_usuarios(user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))):
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select * from usuarios_portal order by nome;")
-        return _with_convite_status(cur.fetchall())
+        papel, escopo = get_escopo(conn, user.id)
+        if papel == "administrador":
+            cur.execute(
+                "select * from usuarios_portal where cliente_id = any(%s::uuid[]) order by nome;",
+                (list(escopo),),
+            )
+        else:
+            cur.execute("select * from usuarios_portal order by nome;")
+        rows = _with_escritorios_administrados(cur, cur.fetchall())
+        return _with_auth_meta(rows)
 
 
 @router.get("/usuarios/{cliente_id}", response_model=list[UsuarioPortal])
 def list_usuarios(
-    cliente_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
+    cliente_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
 ):
     with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        require_escopo_cliente(str(cliente_id), papel, escopo)
         cur.execute(
             "select * from usuarios_portal where cliente_id = %s order by nome;",
             (cliente_id,),
         )
-        return _with_convite_status(cur.fetchall())
+        rows = _with_escritorios_administrados(cur, cur.fetchall())
+        return _with_auth_meta(rows)
 
 
 @router.patch("/usuarios/{usuario_id}", response_model=UsuarioPortal)
 def update_usuario(
     usuario_id: UUID,
     payload: UsuarioPortalUpdate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
 ):
     fields = payload.model_dump(exclude_unset=True)
     senha = fields.pop("senha", None)
+    email = fields.pop("email", None)
     perfil_acesso_id = fields.get("perfil_acesso_id")
-    if not fields and senha is None:
+    papel_alvo = fields.get("papel")
+    if not fields and senha is None and email is None:
         raise HTTPException(status_code=422, detail="Nenhum campo para atualizar")
 
     with get_conn() as conn, conn.cursor() as cur:
+        papel_ator, escopo = get_escopo(conn, user.id)
+        cur.execute("select cliente_id from usuarios_portal where id = %s;", (usuario_id,))
+        alvo_row = cur.fetchone()
+        if alvo_row is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        require_escopo_cliente(str(alvo_row["cliente_id"]), papel_ator, escopo)
+        if papel_alvo is not None:
+            _validar_papel_alvo(papel_alvo, papel_ator)
+
         if fields:
             set_clause = ", ".join(f"{k} = %({k})s" for k in fields)
             fields["id"] = str(usuario_id)
@@ -858,6 +1047,12 @@ def update_usuario(
         if senha is not None:
             try:
                 supabase_admin.set_user_password(str(usuario_id), senha)
+            except supabase_admin.SupabaseAdminError as exc:
+                raise HTTPException(status_code=502, detail=exc.message) from exc
+
+        if email is not None:
+            try:
+                supabase_admin.update_user_email(str(usuario_id), email)
             except supabase_admin.SupabaseAdminError as exc:
                 raise HTTPException(status_code=502, detail=exc.message) from exc
 
@@ -891,20 +1086,129 @@ def update_usuario(
             )
             conn.commit()
 
-        row["convite_status"] = supabase_admin.get_users_status([str(usuario_id)])[str(usuario_id)]
+        meta = supabase_admin.get_users_meta([str(usuario_id)])[str(usuario_id)]
+        row["convite_status"] = meta["convite_status"]
+        row["email"] = meta["email"]
+        return _with_escritorios_administrados(cur, [row])[0]
+
+
+@router.put("/usuarios/{usuario_id}/escritorios-administrados", response_model=UsuarioPortal)
+def set_escritorios_administrados(
+    usuario_id: UUID,
+    payload: EscritoriosAdministradosUpdate,
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
+):
+    """Substitui o conjunto de escritorios que o usuario-alvo administra.
+    Quem atribui so pode conceder escritorios que ja estao no seu proprio
+    escopo (master tem escopo total, entao pode atribuir qualquer um)."""
+    with get_conn() as conn, conn.cursor() as cur:
+        papel_ator, escopo_ator = get_escopo(conn, user.id)
+        cur.execute("select papel, cliente_id from usuarios_portal where id = %s;", (usuario_id,))
+        alvo = cur.fetchone()
+        if alvo is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        if alvo["papel"] != "administrador":
+            raise HTTPException(
+                status_code=422,
+                detail="Usuario precisa ter o papel Administrador para receber escritorios",
+            )
+        require_escopo_cliente(str(alvo["cliente_id"]), papel_ator, escopo_ator)
+
+        cliente_ids = {str(c) for c in payload.cliente_ids}
+        if papel_ator != "master" and not cliente_ids.issubset(escopo_ator):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Voce so pode atribuir escritorios que voce mesmo administra",
+            )
+
+        cur.execute("delete from administrador_clientes where usuario_id = %s;", (usuario_id,))
+        for cliente_id in cliente_ids:
+            cur.execute(
+                "insert into administrador_clientes (usuario_id, cliente_id) values (%s, %s) "
+                "on conflict do nothing;",
+                (str(usuario_id), cliente_id),
+            )
+        conn.commit()
+
+        cur.execute("select * from usuarios_portal where id = %s;", (usuario_id,))
+        row = cur.fetchone()
+        row = _with_escritorios_administrados(cur, [row])[0]
+        meta = supabase_admin.get_users_meta([str(usuario_id)])[str(usuario_id)]
+        row["convite_status"] = meta["convite_status"]
+        row["email"] = meta["email"]
         return row
+
+
+@router.put("/usuarios/{usuario_id}/modulos")
+def set_modulos_usuario(
+    usuario_id: UUID,
+    payload: ModulosUsuarioUpdate,
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
+):
+    """Concede, para uma licenca especifica, exatamente o conjunto de
+    modulos passado (allowlist por usuario — substitui o conjunto anterior)."""
+    with get_conn() as conn, conn.cursor() as cur:
+        papel_ator, escopo_ator = get_escopo(conn, user.id)
+        cur.execute("select cliente_id from usuarios_portal where id = %s;", (usuario_id,))
+        alvo = cur.fetchone()
+        if alvo is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        require_escopo_cliente(str(alvo["cliente_id"]), papel_ator, escopo_ator)
+
+        cur.execute("select cliente_id from licencas where id = %s;", (payload.licenca_id,))
+        licenca = cur.fetchone()
+        if licenca is None:
+            raise HTTPException(status_code=404, detail="Licenca nao encontrada")
+        require_escopo_cliente(str(licenca["cliente_id"]), papel_ator, escopo_ator)
+
+        cur.execute(
+            "delete from usuario_modulos where usuario_id = %s and licenca_id = %s;",
+            (str(usuario_id), str(payload.licenca_id)),
+        )
+        for modulo_id in payload.modulo_ids:
+            cur.execute(
+                "insert into usuario_modulos (usuario_id, licenca_id, modulo_id) "
+                "values (%s, %s, %s) on conflict do nothing;",
+                (str(usuario_id), str(payload.licenca_id), str(modulo_id)),
+            )
+        conn.commit()
+        return {"licenca_id": str(payload.licenca_id), "modulo_ids": [str(m) for m in payload.modulo_ids]}
+
+
+@router.get("/usuarios/{usuario_id}/modulos", response_model=list[UUID])
+def get_modulos_usuario(
+    usuario_id: UUID,
+    licenca_id: UUID,
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
+):
+    with get_conn() as conn, conn.cursor() as cur:
+        papel_ator, escopo_ator = get_escopo(conn, user.id)
+        cur.execute("select cliente_id from usuarios_portal where id = %s;", (usuario_id,))
+        alvo = cur.fetchone()
+        if alvo is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        require_escopo_cliente(str(alvo["cliente_id"]), papel_ator, escopo_ator)
+
+        cur.execute(
+            "select modulo_id from usuario_modulos where usuario_id = %s and licenca_id = %s;",
+            (str(usuario_id), str(licenca_id)),
+        )
+        return [r["modulo_id"] for r in cur.fetchall()]
 
 
 @router.post("/usuarios/{usuario_id}/solicitar-senha", status_code=status.HTTP_200_OK)
 def solicitar_senha_usuario(
-    usuario_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
+    usuario_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
 ):
     """Envia o e-mail de redefinicao de senha do Supabase para o usuario —
     o admin nunca ve/define a senha diretamente, apenas aciona o envio."""
     with get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select id from usuarios_portal where id = %s;", (usuario_id,))
-        if cur.fetchone() is None:
+        papel_ator, escopo_ator = get_escopo(conn, user.id)
+        cur.execute("select cliente_id from usuarios_portal where id = %s;", (usuario_id,))
+        alvo = cur.fetchone()
+        if alvo is None:
             raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        require_escopo_cliente(str(alvo["cliente_id"]), papel_ator, escopo_ator)
     try:
         supabase_admin.send_password_reset(str(usuario_id))
     except supabase_admin.SupabaseAdminError as e:
@@ -914,12 +1218,19 @@ def solicitar_senha_usuario(
 
 @router.delete("/usuarios/{usuario_id}", status_code=status.HTTP_200_OK)
 def delete_usuario(
-    usuario_id: UUID, _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
+    usuario_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
 ):
     """Revoga o acesso do usuario ao portal (inativa) sem apagar a conta de
     autenticacao nem o historico de vinculos com licencas — reversivel
     reativando (PATCH ativo=true)."""
     with get_conn() as conn, conn.cursor() as cur:
+        papel_ator, escopo_ator = get_escopo(conn, user.id)
+        cur.execute("select cliente_id from usuarios_portal where id = %s;", (usuario_id,))
+        alvo = cur.fetchone()
+        if alvo is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        require_escopo_cliente(str(alvo["cliente_id"]), papel_ator, escopo_ator)
+
         cur.execute(
             "update usuarios_portal set ativo = false where id = %s returning id;",
             (usuario_id,),
@@ -938,9 +1249,15 @@ def delete_usuario(
 )
 def create_usuario_licenca(
     payload: UsuarioLicencaCreate,
-    _: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS)),
 ):
     with get_conn() as conn, conn.cursor() as cur:
+        papel_ator, escopo_ator = get_escopo(conn, user.id)
+        cur.execute("select cliente_id from usuarios_portal where id = %s;", (payload.usuario_id,))
+        alvo = cur.fetchone()
+        if alvo is None:
+            raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+        require_escopo_cliente(str(alvo["cliente_id"]), papel_ator, escopo_ator)
         cur.execute(
             """
             insert into usuario_licencas (usuario_id, licenca_id, perfil_acesso_id)

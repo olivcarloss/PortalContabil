@@ -3,6 +3,7 @@ import { accountingApi } from "../../api/accounting";
 import type { ConciliacaoSintetico, LancamentoAnalitico, MeuProdutoLicenciado } from "../../api/types";
 import StatCard from "../../components/ui/StatCard";
 import StatusChart from "../../components/charts/StatusChart";
+import { formatCurrency, formatDate } from "../../utils/format";
 
 const MESES = [
   "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez",
@@ -222,8 +223,8 @@ export default function AccountingHome() {
                   <td className="mono">{p.cnpj ?? "—"}</td>
                   <td>{p.razao_social ?? "—"}</td>
                   <td>
-                    {p.data_inicio}
-                    {p.data_fim ? ` – ${p.data_fim}` : ""}
+                    {formatDate(p.data_inicio)}
+                    {p.data_fim ? ` – ${formatDate(p.data_fim)}` : ""}
                   </td>
                   <td>
                     <span className={`badge badge-${p.status === "ativa" ? "ativa" : p.status === "suspensa" ? "suspensa" : "cancelada"}`}>
@@ -315,12 +316,7 @@ export default function AccountingHome() {
                     {MESES[c.mes]}/{c.ano}
                   </td>
                   <td>{c.status}</td>
-                  <td>
-                    {(c.saldo_final ?? 0).toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
-                  </td>
+                  <td>{formatCurrency(c.saldo_final)}</td>
                   {temAnalitico && (
                     <td onClick={(e) => e.stopPropagation()}>
                       <button className="btn btn-secondary" onClick={() => openConciliacao(c)}>
@@ -369,11 +365,11 @@ export default function AccountingHome() {
             <tbody>
               {lancamentos.map((l) => (
                 <tr key={l.lancamento_id}>
-                  <td>{l.data_lancamento}</td>
+                  <td>{formatDate(l.data_lancamento)}</td>
                   <td>{l.conta_contabil}</td>
                   <td>{l.historico}</td>
-                  <td>{l.valor_debito?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
-                  <td>{l.valor_credito?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
+                  <td>{formatCurrency(l.valor_debito)}</td>
+                  <td>{formatCurrency(l.valor_credito)}</td>
                   <td>{l.conciliado ? "Sim" : "Não"}</td>
                 </tr>
               ))}

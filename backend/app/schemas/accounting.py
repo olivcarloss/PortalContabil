@@ -1,7 +1,16 @@
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
+
+
+class EnviarRelatorioEmail(BaseModel):
+    destinatarios: list[EmailStr] = Field(min_length=1)
+    titulo: str
+    formato: Literal["csv", "xlsx", "pdf"]
+    colunas: list[str] = Field(min_length=1)
+    linhas: list[list[str]] = Field(default_factory=list)
 
 
 class ConciliacaoSintetico(BaseModel):

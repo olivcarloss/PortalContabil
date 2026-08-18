@@ -47,6 +47,8 @@ export interface PerfilAcesso {
   menu_ids: string[];
 }
 
+export type Papel = "master" | "administrador" | "usuario";
+
 export interface UsuarioPortal {
   id: string;
   cliente_id: string;
@@ -57,6 +59,9 @@ export interface UsuarioPortal {
   criado_em: string;
   atualizado_em: string;
   perfil_acesso_id: string | null;
+  email: string | null;
+  papel: Papel;
+  escritorios_administrados: string[];
 }
 
 export interface Licenca {

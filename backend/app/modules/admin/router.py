@@ -31,17 +31,25 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def me(user: CurrentUser = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
-            "select nome, cliente_id, is_admin from usuarios_portal where id = %s;",
+            "select nome, cliente_id, papel from usuarios_portal where id = %s;",
             (user.id,),
         )
         row = cur.fetchone()
         menus = get_menus_liberados(conn, user.id)
+        escritorios_administrados: list[str] = []
+        if row and row["papel"] == "administrador":
+            cur.execute(
+                "select cliente_id from administrador_clientes where usuario_id = %s;",
+                (user.id,),
+            )
+            escritorios_administrados = [str(r["cliente_id"]) for r in cur.fetchall()]
     return {
         "id": user.id,
         "email": user.email,
         "nome": row["nome"] if row else None,
         "cliente_id": str(row["cliente_id"]) if row else None,
-        "is_admin": bool(row and row["is_admin"]),
+        "papel": row["papel"] if row else "usuario",
+        "escritorios_administrados": escritorios_administrados,
         "menus": sorted(menus),
     }
 

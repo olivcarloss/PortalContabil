@@ -2,18 +2,54 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core import mailer
 from app.core.db import get_conn
+from app.core.report_files import build_csv, build_pdf, build_xlsx
 from app.core.security import CurrentUser, get_current_user
 from app.modules.accounting.access import get_modulos_liberados, require_cnpjs_liberados
-from app.modules.licensing.menus import MENU_PORTAL_CONTABIL, require_menu
+from app.modules.licensing.menus import (
+    MENU_PORTAL_CONTABIL,
+    MENU_RELATORIO_ANALITICO,
+    MENU_RELATORIO_CLIENTES,
+    MENU_RELATORIO_ESCRITORIOS,
+    MENU_RELATORIO_MODULOS,
+    MENU_RELATORIO_PRODUTOS,
+    MENU_RELATORIO_SINTETICO,
+    MENU_RELATORIO_TABELA_PRECOS,
+    require_menu,
+)
 from app.modules.licensing.renovacao import renovar_licencas_vencidas
-from app.schemas.accounting import ConciliacaoSintetico, LancamentoAnalitico, MeuProdutoLicenciado
+from app.schemas.accounting import (
+    ConciliacaoSintetico,
+    EnviarRelatorioEmail,
+    LancamentoAnalitico,
+    MeuProdutoLicenciado,
+)
 
 router = APIRouter(prefix="/accounting", tags=["accounting"])
 
+_QUALQUER_RELATORIO = (
+    MENU_RELATORIO_SINTETICO,
+    MENU_RELATORIO_ANALITICO,
+    MENU_RELATORIO_ESCRITORIOS,
+    MENU_RELATORIO_CLIENTES,
+    MENU_RELATORIO_PRODUTOS,
+    MENU_RELATORIO_MODULOS,
+    MENU_RELATORIO_TABELA_PRECOS,
+)
+
+_MIME_BY_FORMATO = {
+    "csv": "text/csv",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pdf": "application/pdf",
+}
+_EXT_BY_FORMATO = {"csv": "csv", "xlsx": "xlsx", "pdf": "pdf"}
+
 
 @router.get("/meus-modulos", response_model=list[str])
-def meus_modulos(user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL))):
+def meus_modulos(
+    user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL, MENU_RELATORIO_MODULOS)),
+):
     with get_conn() as conn:
         return get_modulos_liberados(conn, user.id)
 
@@ -54,7 +90,9 @@ def meus_produtos(user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL)
 
 
 @router.get("/conciliacoes", response_model=list[ConciliacaoSintetico])
-def list_conciliacoes(user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL))):
+def list_conciliacoes(
+    user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL, MENU_RELATORIO_SINTETICO)),
+):
     with get_conn() as conn:
         cnpj_ids = require_cnpjs_liberados(conn, user.id)
         with conn.cursor() as cur:
@@ -71,7 +109,8 @@ def list_conciliacoes(user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTA
 
 @router.get("/conciliacoes/{conciliacao_id}/lancamentos", response_model=list[LancamentoAnalitico])
 def list_lancamentos(
-    conciliacao_id: UUID, user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL))
+    conciliacao_id: UUID,
+    user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL, MENU_RELATORIO_ANALITICO)),
 ):
     with get_conn() as conn:
         cnpj_ids = require_cnpjs_liberados(conn, user.id)
@@ -102,3 +141,33 @@ def list_lancamentos(
                             detail="Sem acesso a esta conciliacao",
                         )
             return rows
+
+
+@router.post("/relatorios/enviar-email", status_code=status.HTTP_200_OK)
+def enviar_relatorio_email(
+    payload: EnviarRelatorioEmail,
+    _: CurrentUser = Depends(require_menu(*_QUALQUER_RELATORIO)),
+):
+    """Gera o relatorio (mesmos dados ja exibidos/exportados na tela) no
+    formato pedido e envia por e-mail em anexo, com um HTML padronizado
+    explicando o que o destinatario esta recebendo."""
+    if payload.formato == "csv":
+        anexo = build_csv(payload.colunas, payload.linhas)
+    elif payload.formato == "xlsx":
+        anexo = build_xlsx(payload.colunas, payload.linhas)
+    else:
+        anexo = build_pdf(payload.titulo, payload.colunas, payload.linhas, mailer.LOGO_URL)
+
+    try:
+        mailer.send_email_with_attachment(
+            destinatarios=[str(d) for d in payload.destinatarios],
+            assunto=f"Relatório: {payload.titulo}",
+            html_body=mailer.build_relatorio_email_html(payload.titulo),
+            anexo_bytes=anexo,
+            anexo_nome=f"{payload.titulo.lower().replace(' ', '-')}.{_EXT_BY_FORMATO[payload.formato]}",
+            anexo_mimetype=_MIME_BY_FORMATO[payload.formato],
+        )
+    except mailer.MailerError as exc:
+        raise HTTPException(status_code=502, detail=exc.message) from exc
+
+    return {"enviado": True}

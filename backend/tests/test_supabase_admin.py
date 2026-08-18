@@ -50,10 +50,12 @@ def test_set_user_password_error_raises(monkeypatch):
         supabase_admin.set_user_password("user-1", "novaSenha123")
 
 
-def test_get_users_status_maps_confirmed_and_pending(monkeypatch):
+def test_get_users_meta_maps_confirmed_pending_and_email(monkeypatch):
     responses = {
-        "u1": FakeResponse(200, {"id": "u1", "email_confirmed_at": "2026-01-01T00:00:00Z"}),
-        "u2": FakeResponse(200, {"id": "u2", "email_confirmed_at": None}),
+        "u1": FakeResponse(
+            200, {"id": "u1", "email": "u1@example.com", "email_confirmed_at": "2026-01-01T00:00:00Z"}
+        ),
+        "u2": FakeResponse(200, {"id": "u2", "email": "u2@example.com", "email_confirmed_at": None}),
     }
 
     def fake_get(url, *a, **k):
@@ -61,5 +63,21 @@ def test_get_users_status_maps_confirmed_and_pending(monkeypatch):
         return responses[user_id]
 
     monkeypatch.setattr(httpx, "get", fake_get)
-    result = supabase_admin.get_users_status(["u1", "u2"])
-    assert result == {"u1": "ativo", "u2": "pendente"}
+    result = supabase_admin.get_users_meta(["u1", "u2"])
+    assert result == {
+        "u1": {"convite_status": "ativo", "email": "u1@example.com"},
+        "u2": {"convite_status": "pendente", "email": "u2@example.com"},
+    }
+
+
+def test_update_user_email_success(monkeypatch):
+    monkeypatch.setattr(httpx, "put", lambda *a, **k: FakeResponse(200, {"id": "user-1"}))
+    supabase_admin.update_user_email("user-1", "novo@example.com")
+
+
+def test_update_user_email_error_raises(monkeypatch):
+    monkeypatch.setattr(
+        httpx, "put", lambda *a, **k: FakeResponse(422, {"msg": "Email address already registered"})
+    )
+    with pytest.raises(supabase_admin.SupabaseAdminError, match="already registered"):
+        supabase_admin.update_user_email("user-1", "dup@example.com")

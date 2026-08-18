@@ -17,6 +17,13 @@ import PerfisTab from "./pages/licensing/PerfisTab";
 import AccountingHome from "./pages/accounting/AccountingHome";
 import VisaoGeral from "./pages/admin/VisaoGeral";
 import Conciliacao from "./pages/admin/Conciliacao";
+import RelatorioSintetico from "./pages/accounting/relatorios/Sintetico";
+import RelatorioAnalitico from "./pages/accounting/relatorios/Analitico";
+import RelatorioEscritorios from "./pages/accounting/relatorios/Escritorios";
+import RelatorioClientes from "./pages/accounting/relatorios/Clientes";
+import RelatorioProdutos from "./pages/accounting/relatorios/Produtos";
+import RelatorioModulos from "./pages/accounting/relatorios/Modulos";
+import RelatorioTabelaPrecos from "./pages/accounting/relatorios/TabelaPrecos";
 import {
   MENU_ADMIN_CONCILIACAO,
   MENU_ADMIN_VISAO_GERAL,
@@ -26,6 +33,13 @@ import {
   MENU_LICENCIAMENTO_USUARIOS,
   MENU_LICENCIAMENTO_VISAO_GERAL,
   MENU_PORTAL_CONTABIL,
+  MENU_RELATORIO_ANALITICO,
+  MENU_RELATORIO_CLIENTES,
+  MENU_RELATORIO_ESCRITORIOS,
+  MENU_RELATORIO_MODULOS,
+  MENU_RELATORIO_PRODUTOS,
+  MENU_RELATORIO_SINTETICO,
+  MENU_RELATORIO_TABELA_PRECOS,
 } from "./auth/menus";
 
 export default function App() {
@@ -106,6 +120,62 @@ export default function App() {
             element={
               <RequireMenu menu={MENU_PORTAL_CONTABIL}>
                 <AccountingHome />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/sintetico"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_SINTETICO}>
+                <RelatorioSintetico />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/analitico"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_ANALITICO}>
+                <RelatorioAnalitico />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/escritorios"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_ESCRITORIOS}>
+                <RelatorioEscritorios />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/clientes"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_CLIENTES}>
+                <RelatorioClientes />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/produtos"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_PRODUTOS}>
+                <RelatorioProdutos />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/modulos"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_MODULOS}>
+                <RelatorioModulos />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/tabela-precos"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_TABELA_PRECOS}>
+                <RelatorioTabelaPrecos />
               </RequireMenu>
             }
           />

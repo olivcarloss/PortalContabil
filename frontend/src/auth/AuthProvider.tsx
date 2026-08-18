@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         profile,
         profileLoading,
-        isAdmin: profile?.is_admin ?? false,
+        isAdmin: profile?.papel === "master",
         hasMenu,
         signIn,
         signOut,

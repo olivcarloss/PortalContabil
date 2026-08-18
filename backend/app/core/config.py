@@ -10,5 +10,11 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     frontend_origin: str = "http://localhost:5173"
 
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "PortalContabil.cloud <nao-responda@portalcontabil.cloud>"
+
 
 settings = Settings()

@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { ConciliacaoSintetico, LancamentoAnalitico, Overview } from "./types";
+import type { ConciliacaoSintetico, LancamentoAnalitico, Overview, Papel } from "./types";
 
 export interface ConciliacoesFilter {
   cliente_id?: string;
@@ -23,7 +23,8 @@ export interface MeProfile {
   email: string | null;
   nome: string | null;
   cliente_id: string | null;
-  is_admin: boolean;
+  papel: Papel;
+  escritorios_administrados: string[];
   menus: string[];
 }
 

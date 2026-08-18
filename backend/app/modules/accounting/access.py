@@ -41,20 +41,20 @@ def require_cnpjs_liberados(conn, usuario_id: str) -> list[str]:
 
 def get_modulos_liberados(conn, usuario_id: str) -> list[str]:
     """Retorna os codigos dos modulos (ex.: RELATORIO_SINTETICO, RELATORIO_ANALITICO)
-    liberados para o usuario, considerando todas as suas licencas ativas de
-    Conciliacao Contabil. Um modulo aparece liberado se estiver habilitado em
-    QUALQUER uma das licencas ativas do usuario para o produto."""
+    liberados para o usuario, considerando suas licencas ativas de Conciliacao
+    Contabil. Allowlist POR USUARIO (usuario_modulos) — um modulo so aparece
+    se tiver sido concedido explicitamente a esse usuario para aquela licenca,
+    independente de estar habilitado na licenca em si (licenca_modulos)."""
     renovar_licencas_vencidas(conn)
     with conn.cursor() as cur:
         cur.execute(
             """
             select distinct m.codigo
-            from usuario_licencas ul
-            join licencas l on l.id = ul.licenca_id
+            from usuario_modulos um
+            join licencas l on l.id = um.licenca_id
             join produtos p on p.id = l.produto_id
-            join licenca_modulos lm on lm.licenca_id = l.id
-            join modulos m on m.id = lm.modulo_id
-            where ul.usuario_id = %s
+            join modulos m on m.id = um.modulo_id
+            where um.usuario_id = %s
               and p.codigo = %s
               and l.status = 'ativa';
             """,
