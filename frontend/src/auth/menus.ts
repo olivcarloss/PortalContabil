@@ -6,6 +6,7 @@ export const MENU_LICENCIAMENTO_PRODUTOS = "licenciamento_produtos";
 export const MENU_LICENCIAMENTO_ESCRITORIOS = "licenciamento_escritorios";
 export const MENU_LICENCIAMENTO_USUARIOS = "licenciamento_usuarios";
 export const MENU_LICENCIAMENTO_PERFIS = "licenciamento_perfis";
+export const MENU_LICENCIAMENTO_PLANO_CONTAS = "licenciamento_plano_contas";
 export const MENU_PORTAL_CONTABIL = "portal_contabil";
 export const MENU_RELATORIO_SINTETICO = "relatorio_sintetico";
 export const MENU_RELATORIO_ANALITICO = "relatorio_analitico";
@@ -14,6 +15,7 @@ export const MENU_RELATORIO_CLIENTES = "relatorio_clientes";
 export const MENU_RELATORIO_PRODUTOS = "relatorio_produtos";
 export const MENU_RELATORIO_MODULOS = "relatorio_modulos";
 export const MENU_RELATORIO_TABELA_PRECOS = "relatorio_tabela_precos";
+export const MENU_RELATORIO_PLANO_CONTAS = "relatorio_plano_contas";
 
 export const MENU_LABELS: Record<string, string> = {
   [MENU_ADMIN_VISAO_GERAL]: "One Page de Produtos",
@@ -23,6 +25,7 @@ export const MENU_LABELS: Record<string, string> = {
   [MENU_LICENCIAMENTO_ESCRITORIOS]: "Licenciamento — Escritórios",
   [MENU_LICENCIAMENTO_USUARIOS]: "Licenciamento — Usuários",
   [MENU_LICENCIAMENTO_PERFIS]: "Licenciamento — Perfis de acesso",
+  [MENU_LICENCIAMENTO_PLANO_CONTAS]: "Licenciamento — Plano de Contas",
   [MENU_PORTAL_CONTABIL]: "Portal Contábil",
   [MENU_RELATORIO_SINTETICO]: "Relatórios — Sintético",
   [MENU_RELATORIO_ANALITICO]: "Relatórios — Analítico",
@@ -31,6 +34,7 @@ export const MENU_LABELS: Record<string, string> = {
   [MENU_RELATORIO_PRODUTOS]: "Relatórios — Produtos",
   [MENU_RELATORIO_MODULOS]: "Relatórios — Módulos",
   [MENU_RELATORIO_TABELA_PRECOS]: "Relatórios — Tabela de Preços",
+  [MENU_RELATORIO_PLANO_CONTAS]: "Relatórios — Plano de Contas",
 };
 
 export const ALL_MENU_CODES = Object.keys(MENU_LABELS);

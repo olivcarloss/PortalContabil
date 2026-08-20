@@ -5,6 +5,29 @@ export interface Cliente {
   ativo: boolean;
 }
 
+export type TipoContaContabil = "ativo" | "passivo" | "receita" | "custo" | "despesa" | "patrimonio_liquido";
+
+export interface ContaPlano {
+  codigo: string;
+  descricao: string;
+  tipo: TipoContaContabil;
+}
+
+export interface PlanoContas {
+  cliente_id: string | null;
+  origem: "proprio" | "padrao" | "nenhum";
+  total_contas: number;
+  contas: ContaPlano[];
+}
+
+export interface PlanoContasRelatorioLinha {
+  cliente_id: string;
+  cliente_nome: string;
+  codigo: string;
+  descricao: string;
+  tipo: TipoContaContabil;
+}
+
 export interface Cnpj {
   id: string;
   cliente_id: string;

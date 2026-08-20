@@ -14,6 +14,7 @@ import ProdutosTab from "./pages/licensing/ProdutosTab";
 import ClientesTab from "./pages/licensing/ClientesTab";
 import UsuariosTab from "./pages/licensing/UsuariosTab";
 import PerfisTab from "./pages/licensing/PerfisTab";
+import PlanoContasTab from "./pages/licensing/PlanoContasTab";
 import AccountingHome from "./pages/accounting/AccountingHome";
 import VisaoGeral from "./pages/admin/VisaoGeral";
 import Conciliacao from "./pages/admin/Conciliacao";
@@ -24,11 +25,13 @@ import RelatorioClientes from "./pages/accounting/relatorios/Clientes";
 import RelatorioProdutos from "./pages/accounting/relatorios/Produtos";
 import RelatorioModulos from "./pages/accounting/relatorios/Modulos";
 import RelatorioTabelaPrecos from "./pages/accounting/relatorios/TabelaPrecos";
+import RelatorioPlanoContas from "./pages/accounting/relatorios/PlanoContas";
 import {
   MENU_ADMIN_CONCILIACAO,
   MENU_ADMIN_VISAO_GERAL,
   MENU_LICENCIAMENTO_ESCRITORIOS,
   MENU_LICENCIAMENTO_PERFIS,
+  MENU_LICENCIAMENTO_PLANO_CONTAS,
   MENU_LICENCIAMENTO_PRODUTOS,
   MENU_LICENCIAMENTO_USUARIOS,
   MENU_LICENCIAMENTO_VISAO_GERAL,
@@ -37,6 +40,7 @@ import {
   MENU_RELATORIO_CLIENTES,
   MENU_RELATORIO_ESCRITORIOS,
   MENU_RELATORIO_MODULOS,
+  MENU_RELATORIO_PLANO_CONTAS,
   MENU_RELATORIO_PRODUTOS,
   MENU_RELATORIO_SINTETICO,
   MENU_RELATORIO_TABELA_PRECOS,
@@ -104,6 +108,14 @@ export default function App() {
             element={
               <RequireMenu menu={MENU_LICENCIAMENTO_USUARIOS}>
                 <UsuariosTab />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/licenciamento/plano-contas"
+            element={
+              <RequireMenu menu={MENU_LICENCIAMENTO_PLANO_CONTAS}>
+                <PlanoContasTab />
               </RequireMenu>
             }
           />
@@ -176,6 +188,14 @@ export default function App() {
             element={
               <RequireMenu menu={MENU_RELATORIO_TABELA_PRECOS}>
                 <RelatorioTabelaPrecos />
+              </RequireMenu>
+            }
+          />
+          <Route
+            path="/contabil/relatorios/plano-contas"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_PLANO_CONTAS}>
+                <RelatorioPlanoContas />
               </RequireMenu>
             }
           />

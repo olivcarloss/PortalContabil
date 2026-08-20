@@ -6,6 +6,8 @@ import type {
   Modulo,
   Papel,
   PerfilAcesso,
+  PlanoContas,
+  PlanoContasRelatorioLinha,
   Produto,
   UsuarioPortal,
 } from "./types";
@@ -68,6 +70,21 @@ export const licensingApi = {
     payload: Partial<Pick<Cnpj, "cnpj" | "razao_social" | "nome_fantasia" | "email_contato" | "telefone" | "ativo">>
   ) => api.patch<Cnpj>(`/licensing/cnpjs/${cnpjId}`, payload),
   deleteCnpj: (cnpjId: string) => api.delete<Cnpj>(`/licensing/cnpjs/${cnpjId}`),
+
+  getPlanoContas: (clienteId?: string) =>
+    api.get<PlanoContas>(`/licensing/plano-contas${clienteId ? `?cliente_id=${clienteId}` : ""}`),
+  uploadPlanoContas: (file: File, clienteId?: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.uploadForm<{ total_contas: number }>(
+      `/licensing/plano-contas${clienteId ? `?cliente_id=${clienteId}` : ""}`,
+      form
+    );
+  },
+  deletePlanoContas: (clienteId: string) =>
+    api.delete<{ removido: boolean }>(`/licensing/plano-contas/${clienteId}`),
+  relatorioPlanoContas: () =>
+    api.get<PlanoContasRelatorioLinha[]>("/licensing/plano-contas/relatorio"),
 
   listLicencas: (filter: { clienteId?: string; produtoId?: string } = {}) => {
     const params = new URLSearchParams();

@@ -125,6 +125,126 @@ button {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   padding: 1.5rem;
+  /* Tabelas largas rolam horizontalmente dentro do próprio card, em vez de
+     estourar o layout da página — sem precisar de wrapper extra em cada tela. */
+  overflow-x: auto;
+}
+
+/* ============================================================
+   Layout do Shell (sidebar + conteúdo) — responsivo por breakpoint.
+   ============================================================ */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--color-primary);
+  color: white;
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0; /* permite o filho flex encolher em vez de estourar com tabelas largas */
+  padding: 2rem;
+  background: var(--color-bg);
+  display: flex;
+  justify-content: center;
+}
+
+.app-main-inner {
+  width: 100%;
+  max-width: 80%;
+}
+
+.app-sidebar-toggle,
+.app-sidebar-backdrop {
+  display: none;
+}
+
+/* Notebooks/telas médias: 80% fica apertado demais, dá mais respiro. */
+@media (max-width: 1280px) {
+  .app-main-inner {
+    max-width: 92%;
+  }
+}
+
+/* iPads/tablets: sidebar mais estreita, ainda fixa. */
+@media (max-width: 1024px) {
+  .app-sidebar {
+    width: 210px;
+  }
+  .app-main {
+    padding: 1.5rem;
+  }
+  .app-main-inner {
+    max-width: 100%;
+  }
+}
+
+/* Celulares: sidebar vira menu retrátil (off-canvas). */
+@media (max-width: 768px) {
+  .app-shell {
+    display: block;
+  }
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 260px;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.35);
+  }
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+  .app-main {
+    padding: 1.1rem;
+    display: block;
+  }
+  .app-main-inner {
+    max-width: 100%;
+  }
+  .app-sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+  .app-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 10, 0.45);
+    z-index: 150;
+  }
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 560px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 input,
@@ -237,6 +357,12 @@ div.row-clickable:hover {
 @media (max-width: 900px) {
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
   }
 }
 

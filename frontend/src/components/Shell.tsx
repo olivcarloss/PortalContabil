@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import {
@@ -41,28 +41,26 @@ export default function Shell() {
   const location = useLocation();
   const [licensingOpen, setLicensingOpen] = useState(location.pathname.startsWith("/licenciamento"));
   const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith("/contabil/relatorios"));
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Fecha o menu retrátil ao trocar de tela (celular).
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const visibleLicensingLinks = LICENSING_LINKS.filter((l) => hasMenu(l.menu));
   const visibleReportLinks = REPORT_LINKS.filter((l) => hasMenu(l.menu));
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <aside
-        style={{
-          width: 240,
-          background: "var(--color-primary)",
-          color: "white",
-          padding: "1.5rem 1.25rem",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+    <div className="app-shell">
+      {mobileOpen && <div className="app-sidebar-backdrop" onClick={() => setMobileOpen(false)} />}
+      <aside className={`app-sidebar${mobileOpen ? " open" : ""}`}>
         <Link
           to="/"
           style={{
             background: "white",
             borderRadius: "var(--radius-md)",
-            padding: "0.6rem 0.8rem",
+            padding: "0.35rem 0.4rem",
             marginBottom: "2rem",
             display: "flex",
             alignItems: "center",
@@ -162,7 +160,7 @@ export default function Shell() {
           )}
         </nav>
         <div style={{ marginTop: "auto", fontSize: "0.85rem", opacity: 0.85 }}>
-          <div style={{ marginBottom: "0.5rem" }}>{session?.user.email}</div>
+          <div style={{ marginBottom: "0.5rem", wordBreak: "break-word" }}>{session?.user.email}</div>
           <button
             onClick={() => signOut()}
             className="btn btn-secondary btn-sidebar"
@@ -172,8 +170,17 @@ export default function Shell() {
           </button>
         </div>
       </aside>
-      <main style={{ flex: 1, padding: "2rem", background: "var(--color-bg)" }}>
-        <Outlet />
+      <main className="app-main">
+        <div className="app-main-inner">
+          <button
+            className="app-sidebar-toggle"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Abrir menu"
+          >
+            ☰
+          </button>
+          <Outlet />
+        </div>
       </main>
     </div>
   );

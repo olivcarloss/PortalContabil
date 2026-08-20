@@ -4,9 +4,10 @@ from app.core.config import settings
 
 
 class SupabaseAdminError(Exception):
-    def __init__(self, message: str):
+    def __init__(self, message: str, already_registered: bool = False):
         super().__init__(message)
         self.message = message
+        self.already_registered = already_registered
 
 
 def _headers() -> dict[str, str]:
@@ -37,7 +38,28 @@ def create_user_with_password(email: str, nome: str, senha: str) -> str:
 
     body = resp.json() if resp.content else {}
     message = body.get("msg") or body.get("message") or body.get("error_description") or resp.text
-    raise SupabaseAdminError(message)
+    already = resp.status_code == 422 and "already been registered" in message.lower()
+    raise SupabaseAdminError(message, already_registered=already)
+
+
+def get_user_id_by_email(email: str) -> str | None:
+    """Busca o auth_user_id de um e-mail ja existente na autenticacao —
+    usado quando uma tentativa de criar conta nova esbarra em "already
+    registered": a pessoa ja tem login no Supabase Auth, so falta o perfil
+    dela em usuarios_portal (ex.: convite anterior que nao completou)."""
+    resp = httpx.get(
+        f"{settings.supabase_url}/auth/v1/admin/users",
+        headers=_headers(),
+        params={"per_page": 200},
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return None
+    email_lower = email.strip().lower()
+    for u in resp.json().get("users", []):
+        if (u.get("email") or "").lower() == email_lower:
+            return u["id"]
+    return None
 
 
 def set_user_password(user_id: str, senha: str) -> None:

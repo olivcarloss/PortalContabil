@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { accountingApi } from "../../api/accounting";
 import type { ConciliacaoSintetico, LancamentoAnalitico, MeuProdutoLicenciado } from "../../api/types";
 import StatCard from "../../components/ui/StatCard";
 import StatusChart from "../../components/charts/StatusChart";
+import { useAuth } from "../../auth/AuthProvider";
+import { MENU_LICENCIAMENTO_PLANO_CONTAS } from "../../auth/menus";
 import { formatCurrency, formatDate } from "../../utils/format";
 
 const MESES = [
@@ -16,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function AccountingHome() {
+  const { hasMenu } = useAuth();
   const [meusProdutos, setMeusProdutos] = useState<MeuProdutoLicenciado[]>([]);
   const [conciliacoes, setConciliacoes] = useState<ConciliacaoSintetico[]>([]);
   const [selected, setSelected] = useState<ConciliacaoSintetico | null>(null);
@@ -117,10 +121,19 @@ export default function AccountingHome() {
 
   return (
     <div>
-      <h1>Portal Contábil</h1>
-      <p style={{ color: "var(--color-text-muted)" }}>
-        Produtos licenciados para os CNPJs do seu escritório.
-      </p>
+      <div className="content-head">
+        <div>
+          <h1>Portal Contábil</h1>
+          <p style={{ color: "var(--color-text-muted)" }}>
+            Produtos licenciados para os CNPJs do seu escritório.
+          </p>
+        </div>
+        {hasMenu(MENU_LICENCIAMENTO_PLANO_CONTAS) && (
+          <Link to="/licenciamento/plano-contas" className="btn btn-secondary">
+            Plano de Contas
+          </Link>
+        )}
+      </div>
 
       {!loading && meusProdutos.length > 0 && (
         <>

@@ -17,5 +17,5 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 }
 
 export function FieldRow({ children }: { children: ReactNode }) {
-  return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>{children}</div>;
+  return <div className="field-row">{children}</div>;
 }

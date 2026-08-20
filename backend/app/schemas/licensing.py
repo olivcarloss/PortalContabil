@@ -229,3 +229,28 @@ class UsuarioLicencaCreate(BaseModel):
 class UsuarioLicenca(UsuarioLicencaCreate):
     id: UUID
     criado_em: datetime
+
+
+class ContaPlano(BaseModel):
+    codigo: str
+    descricao: str
+    tipo: Literal["ativo", "passivo", "receita", "custo", "despesa", "patrimonio_liquido"]
+
+
+class PlanoContas(BaseModel):
+    cliente_id: UUID | None
+    origem: Literal["proprio", "padrao", "nenhum"]
+    total_contas: int
+    contas: list[ContaPlano]
+
+
+class PlanoContasUpload(BaseModel):
+    total_contas: int
+
+
+class PlanoContasRelatorioLinha(BaseModel):
+    cliente_id: UUID
+    cliente_nome: str
+    codigo: str
+    descricao: str
+    tipo: Literal["ativo", "passivo", "receita", "custo", "despesa", "patrimonio_liquido"]

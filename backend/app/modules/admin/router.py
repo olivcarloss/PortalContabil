@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
+from app.core.config import settings
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
 from app.modules.licensing.menus import (
@@ -24,17 +25,67 @@ from app.schemas.accounting import (
 
 FINALIZADO_STATUSES = ("concluida", "concluída", "finalizada", "finalizado")
 
+ADMIN_ESCRITORIO_NOME = "IA-Cloude — Administração"
+ADMIN_CNPJ = "99999999999999"
+
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _ensure_admin_escritorio(cur) -> str:
+    """Garante que exista um escritorio + CNPJ administrativos (placeholder,
+    CNPJ 99.999.999/9999-99) para o usuario master poder operar mesmo sem
+    nenhum cliente real cadastrado. Idempotente: recria o que faltar, sem
+    duplicar o que ja existe. Chamado a cada /me para se autocurar caso
+    algum desses registros seja apagado do banco."""
+    cur.execute("select id from clientes where nome = %s;", (ADMIN_ESCRITORIO_NOME,))
+    row = cur.fetchone()
+    if row is None:
+        cur.execute(
+            "insert into clientes (nome, ativo, interno) values (%s, true, true) returning id;",
+            (ADMIN_ESCRITORIO_NOME,),
+        )
+        row = cur.fetchone()
+    cliente_id = str(row["id"])
+
+    cur.execute("select 1 from cnpjs where cnpj = %s;", (ADMIN_CNPJ,))
+    if cur.fetchone() is None:
+        cur.execute(
+            "insert into cnpjs (cliente_id, cnpj, razao_social, ativo) "
+            "values (%s, %s, %s, true);",
+            (cliente_id, ADMIN_CNPJ, ADMIN_ESCRITORIO_NOME),
+        )
+    return cliente_id
 
 
 @router.get("/me")
 def me(user: CurrentUser = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
+        admin_cliente_id = _ensure_admin_escritorio(cur)
+
         cur.execute(
             "select nome, cliente_id, papel from usuarios_portal where id = %s;",
             (user.id,),
         )
         row = cur.fetchone()
+
+        if (
+            row is None
+            and settings.master_seed_email
+            and user.email == settings.master_seed_email
+        ):
+            # Recuperacao: se usuarios_portal foi zerada (ou este e o
+            # primeiro acesso do e-mail semente), o master sempre reganha
+            # acesso sozinho, sem depender de alguem rodar SQL manual.
+            cur.execute(
+                "insert into usuarios_portal (id, cliente_id, nome, papel, ativo) "
+                "values (%s, %s, %s, 'master', true) "
+                "returning nome, cliente_id, papel;",
+                (user.id, admin_cliente_id, "Administrador IA-Cloude"),
+            )
+            row = cur.fetchone()
+
+        conn.commit()
+
         menus = get_menus_liberados(conn, user.id)
         escritorios_administrados: list[str] = []
         if row and row["papel"] == "administrador":
@@ -59,10 +110,16 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
     with get_conn() as conn, conn.cursor() as cur:
         renovar_licencas_vencidas(conn)
 
-        cur.execute("select count(*) as n, count(*) filter (where ativo) as ativos from clientes;")
+        cur.execute(
+            "select count(*) as n, count(*) filter (where ativo) as ativos "
+            "from clientes where not interno;"
+        )
         clientes_row = cur.fetchone()
 
-        cur.execute("select count(*) as n from cnpjs;")
+        cur.execute(
+            "select count(*) as n from cnpjs cn join clientes cl on cl.id = cn.cliente_id "
+            "where not cl.interno;"
+        )
         total_cnpjs = cur.fetchone()["n"]
 
         cur.execute(
@@ -106,6 +163,7 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
             left join cnpjs cn on cn.cliente_id = cl.id
             left join licencas l on l.cliente_id = cl.id
             left join produtos p on p.id = l.produto_id
+            where not cl.interno
             group by cl.id, cl.nome, cl.ativo
             order by cl.nome;
             """
@@ -127,6 +185,7 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
             join clientes cl on cl.id = cn.cliente_id
             left join licencas l on (l.cnpj_id = cn.id) or (l.cnpj_id is null and l.cliente_id = cn.cliente_id)
             left join produtos p on p.id = l.produto_id
+            where not cl.interno
             group by cn.id, cn.cliente_id, cl.nome, cn.cnpj, cn.razao_social, cn.ativo
             order by cl.nome, cn.razao_social;
             """

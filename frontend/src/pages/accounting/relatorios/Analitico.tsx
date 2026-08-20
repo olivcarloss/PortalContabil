@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { accountingApi } from "../../../api/accounting";
-import type { ConciliacaoSintetico, LancamentoAnalitico } from "../../../api/types";
+import { licensingApi } from "../../../api/licensing";
+import type { ConciliacaoSintetico, ContaPlano, LancamentoAnalitico } from "../../../api/types";
 import ExportBar from "../../../components/ui/ExportBar";
 import type { ExportColumn } from "../../../utils/export";
 import { formatCurrency, formatDate } from "../../../utils/format";
@@ -14,19 +15,17 @@ const CONCILIACAO_COLUMNS: ExportColumn<ConciliacaoSintetico>[] = [
   { header: "Status", value: (c) => c.status },
 ];
 
-const LANCAMENTO_COLUMNS: ExportColumn<LancamentoAnalitico>[] = [
-  { header: "Data", value: (l) => formatDate(l.data_lancamento) },
-  { header: "Conta contábil", value: (l) => l.conta_contabil ?? "" },
-  { header: "Histórico", value: (l) => l.historico ?? "" },
-  { header: "Débito", value: (l) => formatCurrency(l.valor_debito) },
-  { header: "Crédito", value: (l) => formatCurrency(l.valor_credito) },
-  { header: "Conciliado", value: (l) => (l.conciliado ? "Sim" : "Não") },
-];
+function descricaoConta(planoPorCodigo: Record<string, ContaPlano>, codigo: string | null): string {
+  if (!codigo) return "";
+  return planoPorCodigo[codigo]?.descricao ?? "";
+}
 
 export default function RelatorioAnalitico() {
   const [conciliacoes, setConciliacoes] = useState<ConciliacaoSintetico[]>([]);
   const [selected, setSelected] = useState<ConciliacaoSintetico | null>(null);
   const [lancamentos, setLancamentos] = useState<LancamentoAnalitico[]>([]);
+  const [planoPorCodigo, setPlanoPorCodigo] = useState<Record<string, ContaPlano>>({});
+  const [filtroConta, setFiltroConta] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,8 +40,33 @@ export default function RelatorioAnalitico() {
   function abrir(c: ConciliacaoSintetico) {
     setSelected(c);
     setLancamentos([]);
+    setFiltroConta("");
+    setPlanoPorCodigo({});
     accountingApi.listLancamentos(c.conciliacao_id).then(setLancamentos).catch((e) => setError(e.message));
+    licensingApi
+      .getPlanoContas(c.cliente_id)
+      .then((plano) => setPlanoPorCodigo(Object.fromEntries(plano.contas.map((conta) => [conta.codigo, conta]))))
+      .catch(() => setPlanoPorCodigo({}));
   }
+
+  const contasDisponiveis = useMemo(
+    () => Array.from(new Set(lancamentos.map((l) => l.conta_contabil).filter((c): c is string => !!c))).sort(),
+    [lancamentos]
+  );
+
+  const lancamentosFiltrados = filtroConta
+    ? lancamentos.filter((l) => l.conta_contabil === filtroConta)
+    : lancamentos;
+
+  const LANCAMENTO_COLUMNS: ExportColumn<LancamentoAnalitico>[] = [
+    { header: "Data", value: (l) => formatDate(l.data_lancamento) },
+    { header: "Conta contábil", value: (l) => l.conta_contabil ?? "" },
+    { header: "Descrição da conta", value: (l) => descricaoConta(planoPorCodigo, l.conta_contabil) },
+    { header: "Histórico", value: (l) => l.historico ?? "" },
+    { header: "Débito", value: (l) => formatCurrency(l.valor_debito) },
+    { header: "Crédito", value: (l) => formatCurrency(l.valor_credito) },
+    { header: "Conciliado", value: (l) => (l.conciliado ? "Sim" : "Não") },
+  ];
 
   return (
     <div>
@@ -117,13 +141,30 @@ export default function RelatorioAnalitico() {
             filename={`relatorio-analitico-lancamentos-${selected.cnpj}-${selected.mes}-${selected.ano}`}
             title={`Lançamentos — ${selected.razao_social} (${MESES[selected.mes]}/${selected.ano})`}
             columns={LANCAMENTO_COLUMNS}
-            rows={lancamentos}
+            rows={lancamentosFiltrados}
           />
+
+          {contasDisponiveis.length > 0 && (
+            <div style={{ margin: "0.6rem 0" }}>
+              <label style={{ fontSize: "0.85rem", marginRight: "0.5rem" }}>Filtrar por conta contábil:</label>
+              <select value={filtroConta} onChange={(e) => setFiltroConta(e.target.value)}>
+                <option value="">Todas as contas</option>
+                {contasDisponiveis.map((codigo) => (
+                  <option key={codigo} value={codigo}>
+                    {codigo}
+                    {descricaoConta(planoPorCodigo, codigo) ? ` — ${descricaoConta(planoPorCodigo, codigo)}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <table>
             <thead>
               <tr>
                 <th>Data</th>
                 <th>Conta contábil</th>
+                <th>Descrição da conta</th>
                 <th>Histórico</th>
                 <th>Débito</th>
                 <th>Crédito</th>
@@ -131,30 +172,31 @@ export default function RelatorioAnalitico() {
               </tr>
             </thead>
             <tbody>
-              {lancamentos.map((l) => (
+              {lancamentosFiltrados.map((l) => (
                 <tr key={l.lancamento_id}>
                   <td>{formatDate(l.data_lancamento)}</td>
                   <td>{l.conta_contabil}</td>
+                  <td>{descricaoConta(planoPorCodigo, l.conta_contabil)}</td>
                   <td>{l.historico}</td>
                   <td>{formatCurrency(l.valor_debito)}</td>
                   <td>{formatCurrency(l.valor_credito)}</td>
                   <td>{l.conciliado ? "Sim" : "Não"}</td>
                 </tr>
               ))}
-              {lancamentos.length === 0 && (
+              {lancamentosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="empty-state">
+                  <td colSpan={7} className="empty-state">
                     Sem lançamentos.
                   </td>
                 </tr>
               )}
             </tbody>
-            {lancamentos.length > 0 && (
+            {lancamentosFiltrados.length > 0 && (
               <tfoot>
                 <tr style={{ fontWeight: 600 }}>
-                  <td colSpan={3}>Total</td>
-                  <td>{formatCurrency(lancamentos.reduce((sum, l) => sum + (l.valor_debito ?? 0), 0))}</td>
-                  <td>{formatCurrency(lancamentos.reduce((sum, l) => sum + (l.valor_credito ?? 0), 0))}</td>
+                  <td colSpan={4}>Total</td>
+                  <td>{formatCurrency(lancamentosFiltrados.reduce((sum, l) => sum + (l.valor_debito ?? 0), 0))}</td>
+                  <td>{formatCurrency(lancamentosFiltrados.reduce((sum, l) => sum + (l.valor_credito ?? 0), 0))}</td>
                   <td></td>
                 </tr>
               </tfoot>

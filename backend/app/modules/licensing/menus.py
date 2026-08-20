@@ -25,6 +25,7 @@ MENU_LICENCIAMENTO_PRODUTOS = "licenciamento_produtos"
 MENU_LICENCIAMENTO_ESCRITORIOS = "licenciamento_escritorios"
 MENU_LICENCIAMENTO_USUARIOS = "licenciamento_usuarios"
 MENU_LICENCIAMENTO_PERFIS = "licenciamento_perfis"
+MENU_LICENCIAMENTO_PLANO_CONTAS = "licenciamento_plano_contas"
 MENU_PORTAL_CONTABIL = "portal_contabil"
 MENU_RELATORIO_SINTETICO = "relatorio_sintetico"
 MENU_RELATORIO_ANALITICO = "relatorio_analitico"
@@ -33,6 +34,7 @@ MENU_RELATORIO_CLIENTES = "relatorio_clientes"
 MENU_RELATORIO_PRODUTOS = "relatorio_produtos"
 MENU_RELATORIO_MODULOS = "relatorio_modulos"
 MENU_RELATORIO_TABELA_PRECOS = "relatorio_tabela_precos"
+MENU_RELATORIO_PLANO_CONTAS = "relatorio_plano_contas"
 
 MENU_LABELS: dict[str, str] = {
     MENU_ADMIN_VISAO_GERAL: "One Page de Produtos",
@@ -42,6 +44,7 @@ MENU_LABELS: dict[str, str] = {
     MENU_LICENCIAMENTO_ESCRITORIOS: "Licenciamento — Escritórios",
     MENU_LICENCIAMENTO_USUARIOS: "Licenciamento — Usuários",
     MENU_LICENCIAMENTO_PERFIS: "Licenciamento — Perfis de acesso",
+    MENU_LICENCIAMENTO_PLANO_CONTAS: "Licenciamento — Plano de Contas",
     MENU_PORTAL_CONTABIL: "Portal Contábil",
     MENU_RELATORIO_SINTETICO: "Relatórios — Sintético",
     MENU_RELATORIO_ANALITICO: "Relatórios — Analítico",
@@ -50,6 +53,7 @@ MENU_LABELS: dict[str, str] = {
     MENU_RELATORIO_PRODUTOS: "Relatórios — Produtos",
     MENU_RELATORIO_MODULOS: "Relatórios — Módulos",
     MENU_RELATORIO_TABELA_PRECOS: "Relatórios — Tabela de Preços",
+    MENU_RELATORIO_PLANO_CONTAS: "Relatórios — Plano de Contas",
 }
 
 ALL_MENU_CODES: list[str] = list(MENU_LABELS)

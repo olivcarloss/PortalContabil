@@ -2,26 +2,33 @@ from datetime import date
 from uuid import UUID
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
 from app.core import supabase_admin
 from app.core.db import get_conn
+from app.core.plano_contas import parse_plano_contas_xlsx
 from app.core.security import CurrentUser, get_current_user
 from app.modules.licensing.escopo import (
     get_escopo,
     get_usuario_cliente_id,
     require_escopo_cliente,
+    require_escopo_cliente_leitura,
     require_papel_master,
 )
 from app.modules.licensing.menus import (
     MENU_LICENCIAMENTO_ESCRITORIOS,
     MENU_LICENCIAMENTO_PERFIS,
+    MENU_LICENCIAMENTO_PLANO_CONTAS,
     MENU_LICENCIAMENTO_PRODUTOS,
     MENU_LICENCIAMENTO_USUARIOS,
     MENU_LICENCIAMENTO_VISAO_GERAL,
+    MENU_PORTAL_CONTABIL,
+    MENU_RELATORIO_ANALITICO,
     MENU_RELATORIO_CLIENTES,
     MENU_RELATORIO_ESCRITORIOS,
+    MENU_RELATORIO_PLANO_CONTAS,
     MENU_RELATORIO_PRODUTOS,
+    MENU_RELATORIO_SINTETICO,
     MENU_RELATORIO_TABELA_PRECOS,
     require_menu,
 )
@@ -38,6 +45,7 @@ _QUALQUER_MENU_LICENCIAMENTO = (
     MENU_LICENCIAMENTO_ESCRITORIOS,
     MENU_LICENCIAMENTO_USUARIOS,
     MENU_LICENCIAMENTO_PERFIS,
+    MENU_LICENCIAMENTO_PLANO_CONTAS,
 )
 from app.schemas.licensing import (
     Cliente,
@@ -54,6 +62,9 @@ from app.schemas.licensing import (
     Modulo,
     ModuloCreate,
     ModuloUpdate,
+    PlanoContas,
+    PlanoContasRelatorioLinha,
+    PlanoContasUpload,
     PerfilAcesso,
     PerfilAcessoCreate,
     PerfilAcessoUpdate,
@@ -430,16 +441,16 @@ def list_clientes(
     with get_conn() as conn, conn.cursor() as cur:
         papel, escopo = get_escopo(conn, user.id)
         if papel == "master":
-            cur.execute("select * from clientes order by nome;")
+            cur.execute("select * from clientes where not interno order by nome;")
         elif papel == "administrador":
             cur.execute(
-                "select * from clientes where id = any(%s::uuid[]) order by nome;",
+                "select * from clientes where id = any(%s::uuid[]) and not interno order by nome;",
                 (list(escopo),),
             )
         else:
             proprio_cliente_id = get_usuario_cliente_id(conn, user.id)
             cur.execute(
-                "select * from clientes where id = %s order by nome;",
+                "select * from clientes where id = %s and not interno order by nome;",
                 (proprio_cliente_id,),
             )
         return cur.fetchall()
@@ -532,16 +543,21 @@ def list_cnpjs_todos(
         if cliente_id:
             require_escopo_cliente(str(cliente_id), papel, escopo)
             cur.execute(
-                "select * from cnpjs where cliente_id = %s order by razao_social;",
+                "select cn.* from cnpjs cn join clientes cl on cl.id = cn.cliente_id "
+                "where cn.cliente_id = %s and not cl.interno order by cn.razao_social;",
                 (cliente_id,),
             )
         elif papel == "administrador":
             cur.execute(
-                "select * from cnpjs where cliente_id = any(%s::uuid[]) order by razao_social;",
+                "select cn.* from cnpjs cn join clientes cl on cl.id = cn.cliente_id "
+                "where cn.cliente_id = any(%s::uuid[]) and not cl.interno order by cn.razao_social;",
                 (list(escopo),),
             )
         elif papel == "master":
-            cur.execute("select * from cnpjs order by razao_social;")
+            cur.execute(
+                "select cn.* from cnpjs cn join clientes cl on cl.id = cn.cliente_id "
+                "where not cl.interno order by cn.razao_social;"
+            )
         else:
             # usuario comum: so os CNPJs cobertos por licencas vinculadas a
             # ele via usuario_licencas (por_cnpj direto, ou por_cliente
@@ -569,7 +585,7 @@ def list_cnpjs(
 ):
     with get_conn() as conn, conn.cursor() as cur:
         papel, escopo = get_escopo(conn, user.id)
-        require_escopo_cliente(str(cliente_id), papel, escopo)
+        require_escopo_cliente_leitura(conn, str(cliente_id), papel, escopo, user.id)
         cur.execute(
             "select * from cnpjs where cliente_id = %s order by razao_social;",
             (cliente_id,),
@@ -593,6 +609,8 @@ def create_cnpj(
             payload.model_dump(),
         )
         row = cur.fetchone()
+        if payload.ativo:
+            _ativar_escritorio_se_necessario(cur, str(payload.cliente_id))
         conn.commit()
         return row
 
@@ -603,6 +621,46 @@ def _cnpj_cliente_id(cur, cnpj_id: UUID) -> str:
     if row is None:
         raise HTTPException(status_code=404, detail="Cliente (CNPJ) nao encontrado")
     return str(row["cliente_id"])
+
+
+def _ativar_escritorio_se_necessario(cur, cliente_id: str) -> None:
+    """Ativar um cliente (CNPJ) deve reativar automaticamente o escritorio
+    vinculado a ele, senao o CNPJ fica ativo dentro de um escritorio inativo
+    (invisivel/sem acesso para quem depende do escopo do escritorio)."""
+    cur.execute(
+        "update clientes set ativo = true where id = %s and ativo = false;",
+        (cliente_id,),
+    )
+
+
+def _ativar_cnpj_se_necessario(cur, cnpj_id: str) -> None:
+    """Ativar uma licenca por_cnpj deve reativar automaticamente aquele CNPJ
+    especifico (nao so o escritorio), senao a licenca fica ativa para um
+    cliente que aparece como inativo no cadastro."""
+    cur.execute(
+        "update cnpjs set ativo = true where id = %s and ativo = false;",
+        (cnpj_id,),
+    )
+
+
+def _reparar_status_clientes_ativos(conn) -> None:
+    """Passagem de autocura: toda vez que o produto (licencas) e listado,
+    garante que nenhum escritorio/CNPJ com licenca ativa esteja marcado como
+    inativo no proprio cadastro — corrige qualquer drift (edicao manual no
+    banco, dado reimportado, etc.), forcando o status a bater com a
+    realidade das licencas."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "update clientes set ativo = true "
+            "where not ativo and id in (select cliente_id from licencas where status = 'ativa');"
+        )
+        cur.execute(
+            "update cnpjs set ativo = true "
+            "where not ativo and id in ("
+            "  select cnpj_id from licencas where status = 'ativa' and cnpj_id is not null"
+            ");"
+        )
+    conn.commit()
 
 
 @router.patch("/cnpjs/{cnpj_id}", response_model=Cnpj)
@@ -618,11 +676,14 @@ def update_cnpj(
     fields["id"] = str(cnpj_id)
     with get_conn() as conn, conn.cursor() as cur:
         papel, escopo = get_escopo(conn, user.id)
-        require_escopo_cliente(_cnpj_cliente_id(cur, cnpj_id), papel, escopo)
+        cliente_id = _cnpj_cliente_id(cur, cnpj_id)
+        require_escopo_cliente(cliente_id, papel, escopo)
         cur.execute(f"update cnpjs set {set_clause} where id = %(id)s returning *;", fields)
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Cliente (CNPJ) nao encontrado")
+        if fields.get("ativo") is True:
+            _ativar_escritorio_se_necessario(cur, cliente_id)
         conn.commit()
         return row
 
@@ -647,6 +708,144 @@ def delete_cnpj(
 
 
 # ============================================================
+# Plano de contas
+# ============================================================
+def _carregar_plano_contas(cur, cliente_id: str | None, contas: list[dict]) -> int:
+    cur.execute("delete from plano_contas where cliente_id is not distinct from %s;", (cliente_id,))
+    for conta in contas:
+        cur.execute(
+            "insert into plano_contas (cliente_id, codigo, descricao, tipo) values (%s, %s, %s, %s);",
+            (cliente_id, conta["codigo"], conta["descricao"], conta["tipo"]),
+        )
+    return len(contas)
+
+
+@router.get("/plano-contas", response_model=PlanoContas)
+def get_plano_contas(
+    cliente_id: UUID | None = None,
+    user: CurrentUser = Depends(
+        require_menu(
+            *_QUALQUER_MENU_LICENCIAMENTO,
+            MENU_PORTAL_CONTABIL,
+            MENU_RELATORIO_SINTETICO,
+            MENU_RELATORIO_ANALITICO,
+        )
+    ),
+):
+    with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        if cliente_id is None:
+            require_papel_master(papel)
+            cur.execute(
+                "select codigo, descricao, tipo from plano_contas where cliente_id is null order by codigo;"
+            )
+            contas = cur.fetchall()
+            return {
+                "cliente_id": None,
+                "origem": "padrao" if contas else "nenhum",
+                "total_contas": len(contas),
+                "contas": contas,
+            }
+
+        require_escopo_cliente_leitura(conn, str(cliente_id), papel, escopo, user.id)
+        cur.execute(
+            "select codigo, descricao, tipo from plano_contas where cliente_id = %s order by codigo;",
+            (cliente_id,),
+        )
+        contas = cur.fetchall()
+        origem = "proprio"
+        if not contas:
+            cur.execute(
+                "select codigo, descricao, tipo from plano_contas where cliente_id is null order by codigo;"
+            )
+            contas = cur.fetchall()
+            origem = "padrao" if contas else "nenhum"
+        return {
+            "cliente_id": cliente_id,
+            "origem": origem,
+            "total_contas": len(contas),
+            "contas": contas,
+        }
+
+
+@router.post("/plano-contas", response_model=PlanoContasUpload, status_code=status.HTTP_201_CREATED)
+async def upload_plano_contas(
+    file: UploadFile,
+    cliente_id: UUID | None = None,
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PLANO_CONTAS)),
+):
+    """Substitui integralmente o plano de contas do escopo informado (o
+    proprio escritorio, ou o padrao global se cliente_id for omitido)."""
+    conteudo = await file.read()
+    contas = parse_plano_contas_xlsx(conteudo)
+    with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        if cliente_id is None:
+            require_papel_master(papel)
+        else:
+            require_escopo_cliente(str(cliente_id), papel, escopo)
+        total = _carregar_plano_contas(cur, str(cliente_id) if cliente_id else None, contas)
+        conn.commit()
+        return {"total_contas": total}
+
+
+@router.delete("/plano-contas/{cliente_id}", status_code=status.HTTP_200_OK)
+def delete_plano_contas(
+    cliente_id: UUID,
+    user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_PLANO_CONTAS)),
+):
+    """Remove o plano de contas proprio do escritorio (ele volta a usar o
+    padrao global, se houver um)."""
+    with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        require_escopo_cliente(str(cliente_id), papel, escopo)
+        cur.execute("delete from plano_contas where cliente_id = %s;", (cliente_id,))
+        conn.commit()
+        return {"removido": True}
+
+
+@router.get("/plano-contas/relatorio", response_model=list[PlanoContasRelatorioLinha])
+def relatorio_plano_contas(
+    user: CurrentUser = Depends(
+        require_menu(*_QUALQUER_MENU_LICENCIAMENTO, MENU_RELATORIO_PLANO_CONTAS)
+    ),
+):
+    """Uma linha por conta, de todo escritorio no escopo do usuario que
+    tenha carregado o proprio plano de contas — escritorios usando so o
+    padrao (sem plano proprio) ficam de fora deste relatorio."""
+    with get_conn() as conn, conn.cursor() as cur:
+        papel, escopo = get_escopo(conn, user.id)
+        if papel == "master":
+            cur.execute(
+                "select cl.id as cliente_id, cl.nome as cliente_nome, "
+                "pc.codigo, pc.descricao, pc.tipo "
+                "from plano_contas pc join clientes cl on cl.id = pc.cliente_id "
+                "where not cl.interno "
+                "order by cl.nome, pc.codigo;"
+            )
+        elif papel == "administrador":
+            cur.execute(
+                "select cl.id as cliente_id, cl.nome as cliente_nome, "
+                "pc.codigo, pc.descricao, pc.tipo "
+                "from plano_contas pc join clientes cl on cl.id = pc.cliente_id "
+                "where cl.id = any(%s::uuid[]) "
+                "order by cl.nome, pc.codigo;",
+                (list(escopo),),
+            )
+        else:
+            proprio_cliente_id = get_usuario_cliente_id(conn, user.id)
+            cur.execute(
+                "select cl.id as cliente_id, cl.nome as cliente_nome, "
+                "pc.codigo, pc.descricao, pc.tipo "
+                "from plano_contas pc join clientes cl on cl.id = pc.cliente_id "
+                "where cl.id = %s "
+                "order by pc.codigo;",
+                (proprio_cliente_id,),
+            )
+        return cur.fetchall()
+
+
+# ============================================================
 # Licencas
 # ============================================================
 @router.get("/licencas", response_model=list[Licenca])
@@ -657,7 +856,9 @@ def list_licencas(
         require_menu(*_QUALQUER_MENU_LICENCIAMENTO, MENU_RELATORIO_PRODUTOS)
     ),
 ):
-    filters = []
+    filters = [
+        "not exists (select 1 from clientes cl where cl.id = l.cliente_id and cl.interno)"
+    ]
     params: dict = {}
     if cliente_id:
         filters.append("l.cliente_id = %(cliente_id)s")
@@ -681,6 +882,7 @@ def list_licencas(
         where_clause = f"where {' and '.join(filters)}" if filters else ""
 
         renovar_licencas_vencidas(conn)
+        _reparar_status_clientes_ativos(conn)
         with conn.cursor() as cur:
             cur.execute(
                 "select l.*, coalesce(lm.modulo_ids, '{}') as modulo_ids, "
@@ -775,6 +977,11 @@ def create_licenca(
                 (licenca["id"], modulo_id),
             )
 
+        if licenca["status"] == "ativa":
+            _ativar_escritorio_se_necessario(cur, str(licenca["cliente_id"]))
+            if licenca["cnpj_id"] is not None:
+                _ativar_cnpj_se_necessario(cur, str(licenca["cnpj_id"]))
+
         conn.commit()
         licenca["modulo_ids"] = payload.modulo_ids
         return licenca
@@ -861,6 +1068,10 @@ def update_licenca(
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Licenca nao encontrada")
+        if row["status"] == "ativa":
+            _ativar_escritorio_se_necessario(cur, str(row["cliente_id"]))
+            if row["cnpj_id"] is not None:
+                _ativar_cnpj_se_necessario(cur, str(row["cnpj_id"]))
         conn.commit()
         return row
 
@@ -929,7 +1140,22 @@ def convidar_usuario(
             payload.email, payload.nome, payload.senha
         )
     except supabase_admin.SupabaseAdminError as exc:
-        raise HTTPException(status_code=502, detail=exc.message) from exc
+        if not exc.already_registered:
+            raise HTTPException(status_code=502, detail=exc.message) from exc
+        # E-mail ja existe na autenticacao (ex.: convite anterior que nao
+        # completou o perfil em usuarios_portal). Reaproveita a conta
+        # existente em vez de falhar — sem mexer na senha dela, que a
+        # pessoa pode ja conhecer e usar.
+        auth_user_id = supabase_admin.get_user_id_by_email(payload.email)
+        if auth_user_id is None:
+            raise HTTPException(status_code=502, detail=exc.message) from exc
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute("select 1 from usuarios_portal where id = %s;", (auth_user_id,))
+            if cur.fetchone() is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Este e-mail ja tem uma conta e um perfil ativos no portal.",
+                ) from exc
 
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute(
@@ -981,13 +1207,19 @@ def convidar_usuario(
 def list_todos_usuarios(user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))):
     with get_conn() as conn, conn.cursor() as cur:
         papel, escopo = get_escopo(conn, user.id)
-        if papel == "administrador":
+        if papel == "master":
+            cur.execute("select * from usuarios_portal order by nome;")
+        elif papel == "administrador":
             cur.execute(
                 "select * from usuarios_portal where cliente_id = any(%s::uuid[]) order by nome;",
                 (list(escopo),),
             )
         else:
-            cur.execute("select * from usuarios_portal order by nome;")
+            proprio_cliente_id = get_usuario_cliente_id(conn, user.id)
+            cur.execute(
+                "select * from usuarios_portal where cliente_id = %s order by nome;",
+                (proprio_cliente_id,),
+            )
         rows = _with_escritorios_administrados(cur, cur.fetchall())
         return _with_auth_meta(rows)
 
@@ -998,7 +1230,7 @@ def list_usuarios(
 ):
     with get_conn() as conn, conn.cursor() as cur:
         papel, escopo = get_escopo(conn, user.id)
-        require_escopo_cliente(str(cliente_id), papel, escopo)
+        require_escopo_cliente_leitura(conn, str(cliente_id), papel, escopo, user.id)
         cur.execute(
             "select * from usuarios_portal where cliente_id = %s order by nome;",
             (cliente_id,),

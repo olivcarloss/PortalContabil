@@ -46,6 +46,23 @@ def require_escopo_cliente(cliente_id: str, papel: str | None, escopo: set[str])
     )
 
 
+def require_escopo_cliente_leitura(
+    conn, cliente_id: str, papel: str | None, escopo: set[str], usuario_id: str
+) -> None:
+    """Como require_escopo_cliente, mas tambem libera o papel 'usuario' para
+    ler o proprio escritorio (ele nao administra ninguem, mas pertence a
+    exatamente um). Uso restrito a endpoints somente-leitura — nao usar em
+    criacao/edicao, que devem continuar exigindo master/administrador."""
+    if papel == "usuario":
+        if get_usuario_cliente_id(conn, usuario_id) == str(cliente_id):
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voce so pode ver o proprio escritorio",
+        )
+    require_escopo_cliente(cliente_id, papel, escopo)
+
+
 def get_usuario_cliente_id(conn, usuario_id: str) -> str | None:
     """Escritorio (cliente_id) ao qual o proprio usuario pertence — usado
     para escopar relatorios do papel 'usuario' (que nao administra nenhum

@@ -16,5 +16,10 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "PortalContabil.cloud <nao-responda@portalcontabil.cloud>"
 
+    # E-mail que, ao logar sem ter linha em usuarios_portal, e promovido
+    # automaticamente a master (bootstrap de recuperacao — ver
+    # app/modules/admin/router.py:_ensure_admin_escritorio/me).
+    master_seed_email: str = ""
+
 
 settings = Settings()
