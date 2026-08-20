@@ -11,6 +11,7 @@ from app.modules.licensing.menus import (
     MENU_PORTAL_CONTABIL,
     MENU_RELATORIO_ANALITICO,
     MENU_RELATORIO_CLIENTES,
+    MENU_RELATORIO_CONTAS_CONTABEIS,
     MENU_RELATORIO_ESCRITORIOS,
     MENU_RELATORIO_MODULOS,
     MENU_RELATORIO_PLANO_CONTAS,
@@ -22,6 +23,7 @@ from app.modules.licensing.menus import (
 from app.modules.licensing.renovacao import renovar_licencas_vencidas
 from app.schemas.accounting import (
     ConciliacaoSintetico,
+    ContaContabilResumo,
     EnviarRelatorioEmail,
     LancamentoAnalitico,
     MeuProdutoLicenciado,
@@ -38,6 +40,7 @@ _QUALQUER_RELATORIO = (
     MENU_RELATORIO_MODULOS,
     MENU_RELATORIO_TABELA_PRECOS,
     MENU_RELATORIO_PLANO_CONTAS,
+    MENU_RELATORIO_CONTAS_CONTABEIS,
 )
 
 _MIME_BY_FORMATO = {
@@ -143,6 +146,47 @@ def list_lancamentos(
                             detail="Sem acesso a esta conciliacao",
                         )
             return rows
+
+
+@router.get("/contas-contabeis", response_model=list[ContaContabilResumo])
+def list_contas_contabeis(
+    user: CurrentUser = Depends(require_menu(MENU_PORTAL_CONTABIL, MENU_RELATORIO_CONTAS_CONTABEIS)),
+):
+    """Totais por conta contabil (debito/credito/saldo/qtd lancamentos),
+    agregados a partir dos lancamentos reais de cada CNPJ no escopo do
+    usuario — enriquecido com descricao/tipo do plano de contas do
+    escritorio (ou do padrao, se o escritorio nao tiver plano proprio)."""
+    with get_conn() as conn:
+        cnpj_ids = require_cnpjs_liberados(conn, user.id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select
+                    cn.id as cnpj_id, cn.cnpj, cn.razao_social, cl.nome as cliente_nome,
+                    l.conta_contabil as codigo,
+                    coalesce(pc_proprio.descricao, pc_padrao.descricao) as descricao,
+                    coalesce(pc_proprio.tipo, pc_padrao.tipo) as tipo,
+                    coalesce(sum(l.valor_debito), 0) as total_debito,
+                    coalesce(sum(l.valor_credito), 0) as total_credito,
+                    coalesce(sum(l.valor_credito) - sum(l.valor_debito), 0) as saldo,
+                    count(*) as qtd_lancamentos
+                from lancamentos l
+                join cnpjs cn on cn.id = l.cnpj_id
+                join clientes cl on cl.id = cn.cliente_id
+                left join plano_contas pc_proprio
+                    on pc_proprio.cliente_id = cl.id and pc_proprio.codigo = l.conta_contabil
+                left join plano_contas pc_padrao
+                    on pc_padrao.cliente_id is null and pc_padrao.codigo = l.conta_contabil
+                where l.conta_contabil is not null
+                    and l.cnpj_id = any(%s::uuid[])
+                group by
+                    cn.id, cn.cnpj, cn.razao_social, cl.nome, l.conta_contabil,
+                    pc_proprio.descricao, pc_padrao.descricao, pc_proprio.tipo, pc_padrao.tipo
+                order by cl.nome, cn.razao_social, l.conta_contabil;
+                """,
+                (cnpj_ids,),
+            )
+            return cur.fetchall()
 
 
 @router.post("/relatorios/enviar-email", status_code=status.HTTP_200_OK)

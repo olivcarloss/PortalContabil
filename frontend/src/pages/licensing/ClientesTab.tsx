@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
 import { useAlert } from "../../components/ui/AlertProvider";
+import { useConfirm } from "../../components/ui/ConfirmProvider";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
 import { formatCnpj, formatTelefone, normalizeTelefoneDigits, onlyDigits } from "../../utils/masks";
@@ -15,6 +16,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function ClientesTab() {
   const showAlert = useAlert();
+  const confirmAction = useConfirm();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [cnpjCountByCliente, setCnpjCountByCliente] = useState<Record<string, number>>({});
@@ -72,7 +74,11 @@ export default function ClientesTab() {
   }
 
   async function handleDeleteCliente(cliente: Cliente) {
-    if (!confirm(`Excluir definitivamente o escritório "${cliente.nome}"? Só é possível se ele nunca teve CNPJs, licenças ou usuários — caso contrário, use Editar > Inativar.`)) return;
+    const ok = await confirmAction(
+      `Excluir definitivamente o escritório "${cliente.nome}"? Só é possível se ele nunca teve CNPJs, licenças ou usuários — caso contrário, use Editar > Inativar.`,
+      { title: "Excluir escritório", confirmLabel: "Excluir", danger: true }
+    );
+    if (!ok) return;
     try {
       await licensingApi.deleteCliente(cliente.id);
       refresh();
@@ -82,7 +88,11 @@ export default function ClientesTab() {
   }
 
   async function handleDeleteCnpj(cnpj: Cnpj) {
-    if (!confirm(`Excluir definitivamente o cliente "${cnpj.razao_social}"? Só é possível se ele nunca teve conciliações ou licenças — caso contrário, use Editar > Inativar.`)) return;
+    const ok = await confirmAction(
+      `Excluir definitivamente o cliente "${cnpj.razao_social}"? Só é possível se ele nunca teve conciliações ou licenças — caso contrário, use Editar > Inativar.`,
+      { title: "Excluir cliente", confirmLabel: "Excluir", danger: true }
+    );
+    if (!ok) return;
     try {
       await licensingApi.deleteCnpj(cnpj.id);
       if (selectedClienteId) openDetail(selectedClienteId);
@@ -94,7 +104,11 @@ export default function ClientesTab() {
 
   async function handleToggleAtivoCliente(cliente: Cliente) {
     const acao = cliente.ativo ? "Inativar" : "Reativar";
-    if (!confirm(`${acao} o escritório "${cliente.nome}"?`)) return;
+    const ok = await confirmAction(`${acao} o escritório "${cliente.nome}"?`, {
+      title: `${acao} escritório`,
+      confirmLabel: acao,
+    });
+    if (!ok) return;
     try {
       await licensingApi.updateCliente(cliente.id, { ativo: !cliente.ativo });
       refresh();
@@ -105,7 +119,11 @@ export default function ClientesTab() {
 
   async function handleToggleAtivoCnpj(cnpj: Cnpj) {
     const acao = cnpj.ativo ? "Inativar" : "Reativar";
-    if (!confirm(`${acao} o cliente "${cnpj.razao_social}"?`)) return;
+    const ok = await confirmAction(`${acao} o cliente "${cnpj.razao_social}"?`, {
+      title: `${acao} cliente`,
+      confirmLabel: acao,
+    });
+    if (!ok) return;
     try {
       await licensingApi.updateCnpj(cnpj.id, { ativo: !cnpj.ativo });
       if (selectedClienteId) openDetail(selectedClienteId);

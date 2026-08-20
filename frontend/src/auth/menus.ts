@@ -16,6 +16,7 @@ export const MENU_RELATORIO_PRODUTOS = "relatorio_produtos";
 export const MENU_RELATORIO_MODULOS = "relatorio_modulos";
 export const MENU_RELATORIO_TABELA_PRECOS = "relatorio_tabela_precos";
 export const MENU_RELATORIO_PLANO_CONTAS = "relatorio_plano_contas";
+export const MENU_RELATORIO_CONTAS_CONTABEIS = "relatorio_contas_contabeis";
 
 export const MENU_LABELS: Record<string, string> = {
   [MENU_ADMIN_VISAO_GERAL]: "One Page de Produtos",
@@ -35,6 +36,7 @@ export const MENU_LABELS: Record<string, string> = {
   [MENU_RELATORIO_MODULOS]: "Relatórios — Módulos",
   [MENU_RELATORIO_TABELA_PRECOS]: "Relatórios — Tabela de Preços",
   [MENU_RELATORIO_PLANO_CONTAS]: "Relatórios — Plano de Contas",
+  [MENU_RELATORIO_CONTAS_CONTABEIS]: "Relatórios — Contas Contábeis",
 };
 
 export const ALL_MENU_CODES = Object.keys(MENU_LABELS);

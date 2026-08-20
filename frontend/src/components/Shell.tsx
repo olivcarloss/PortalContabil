@@ -11,6 +11,7 @@ import {
   MENU_PORTAL_CONTABIL,
   MENU_RELATORIO_ANALITICO,
   MENU_RELATORIO_CLIENTES,
+  MENU_RELATORIO_CONTAS_CONTABEIS,
   MENU_RELATORIO_ESCRITORIOS,
   MENU_RELATORIO_MODULOS,
   MENU_RELATORIO_PRODUTOS,
@@ -34,6 +35,7 @@ const REPORT_LINKS = [
   { to: "/contabil/relatorios/produtos", label: "Produtos", menu: MENU_RELATORIO_PRODUTOS },
   { to: "/contabil/relatorios/modulos", label: "Módulos", menu: MENU_RELATORIO_MODULOS },
   { to: "/contabil/relatorios/tabela-precos", label: "Tabela de Preços", menu: MENU_RELATORIO_TABELA_PRECOS },
+  { to: "/contabil/relatorios/contas-contabeis", label: "Contas Contábeis", menu: MENU_RELATORIO_CONTAS_CONTABEIS },
 ];
 
 export default function Shell() {

@@ -107,6 +107,16 @@ button {
   background: var(--color-surface-alt);
 }
 
+.btn-danger {
+  background: var(--color-danger);
+  color: white;
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-danger:hover {
+  opacity: 0.9;
+}
+
 /* Variante para uso sobre fundos escuros (ex.: barra lateral) — mesmo
    laranja de destaque usado no .btn-primary nas demais telas. */
 .btn-sidebar {

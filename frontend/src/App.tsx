@@ -4,6 +4,7 @@ import RequireAuth from "./components/RequireAuth";
 import RequireMenu from "./components/RequireMenu";
 import Shell from "./components/Shell";
 import { AlertProvider } from "./components/ui/AlertProvider";
+import { ConfirmProvider } from "./components/ui/ConfirmProvider";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import AceitarConvite from "./pages/AceitarConvite";
@@ -27,6 +28,7 @@ import RelatorioProdutos from "./pages/accounting/relatorios/Produtos";
 import RelatorioModulos from "./pages/accounting/relatorios/Modulos";
 import RelatorioTabelaPrecos from "./pages/accounting/relatorios/TabelaPrecos";
 import RelatorioPlanoContas from "./pages/accounting/relatorios/PlanoContas";
+import RelatorioContasContabeis from "./pages/accounting/relatorios/ContasContabeis";
 import {
   MENU_ADMIN_CONCILIACAO,
   MENU_ADMIN_VISAO_GERAL,
@@ -39,6 +41,7 @@ import {
   MENU_PORTAL_CONTABIL,
   MENU_RELATORIO_ANALITICO,
   MENU_RELATORIO_CLIENTES,
+  MENU_RELATORIO_CONTAS_CONTABEIS,
   MENU_RELATORIO_ESCRITORIOS,
   MENU_RELATORIO_MODULOS,
   MENU_RELATORIO_PLANO_CONTAS,
@@ -61,6 +64,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AlertProvider>
+      <ConfirmProvider>
       <Routes>
         <Route path="/" element={<RootRoute />} />
         <Route path="/login" element={<Login />} />
@@ -212,8 +216,17 @@ export default function App() {
               </RequireMenu>
             }
           />
+          <Route
+            path="/contabil/relatorios/contas-contabeis"
+            element={
+              <RequireMenu menu={MENU_RELATORIO_CONTAS_CONTABEIS}>
+                <RelatorioContasContabeis />
+              </RequireMenu>
+            }
+          />
         </Route>
       </Routes>
+      </ConfirmProvider>
       </AlertProvider>
     </AuthProvider>
   );

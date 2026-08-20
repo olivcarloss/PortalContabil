@@ -35,6 +35,7 @@ MENU_RELATORIO_PRODUTOS = "relatorio_produtos"
 MENU_RELATORIO_MODULOS = "relatorio_modulos"
 MENU_RELATORIO_TABELA_PRECOS = "relatorio_tabela_precos"
 MENU_RELATORIO_PLANO_CONTAS = "relatorio_plano_contas"
+MENU_RELATORIO_CONTAS_CONTABEIS = "relatorio_contas_contabeis"
 
 MENU_LABELS: dict[str, str] = {
     MENU_ADMIN_VISAO_GERAL: "One Page de Produtos",
@@ -54,6 +55,7 @@ MENU_LABELS: dict[str, str] = {
     MENU_RELATORIO_MODULOS: "Relatórios — Módulos",
     MENU_RELATORIO_TABELA_PRECOS: "Relatórios — Tabela de Preços",
     MENU_RELATORIO_PLANO_CONTAS: "Relatórios — Plano de Contas",
+    MENU_RELATORIO_CONTAS_CONTABEIS: "Relatórios — Contas Contábeis",
 }
 
 ALL_MENU_CODES: list[str] = list(MENU_LABELS)

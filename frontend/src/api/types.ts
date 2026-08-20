@@ -205,3 +205,17 @@ export interface LancamentoAnalitico {
   saldo: number | null;
   conciliado: boolean | null;
 }
+
+export interface ContaContabilResumo {
+  cnpj_id: string;
+  cnpj: string;
+  razao_social: string;
+  cliente_nome: string;
+  codigo: string;
+  descricao: string | null;
+  tipo: string | null;
+  total_debito: number;
+  total_credito: number;
+  saldo: number;
+  qtd_lancamentos: number;
+}

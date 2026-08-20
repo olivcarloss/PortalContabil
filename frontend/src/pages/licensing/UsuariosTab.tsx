@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
 import { useAlert } from "../../components/ui/AlertProvider";
+import { useConfirm } from "../../components/ui/ConfirmProvider";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Licenca, Papel, PerfilAcesso, UsuarioPortal } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
@@ -17,6 +18,7 @@ export default function UsuariosTab() {
   const { profile } = useAuth();
   const souMaster = profile?.papel === "master";
   const showAlert = useAlert();
+  const confirmAction = useConfirm();
 
   const [usuarios, setUsuarios] = useState<UsuarioPortal[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -45,12 +47,11 @@ export default function UsuariosTab() {
   useEffect(refresh, []);
 
   async function handleDelete(usuario: UsuarioPortal) {
-    if (
-      !confirm(
-        `Excluir definitivamente o usuário "${usuario.nome}"? Só é possível se ele nunca teve licenças concedidas nem administrou escritórios — caso contrário, use Editar > Inativo.`
-      )
-    )
-      return;
+    const ok = await confirmAction(
+      `Excluir definitivamente o usuário "${usuario.nome}"? Só é possível se ele nunca teve licenças concedidas nem administrou escritórios — caso contrário, use Editar > Inativo.`,
+      { title: "Excluir usuário", confirmLabel: "Excluir", danger: true }
+    );
+    if (!ok) return;
     try {
       await licensingApi.deleteUsuario(usuario.id);
       refresh();
@@ -60,7 +61,11 @@ export default function UsuariosTab() {
   }
 
   async function handleReativar(usuario: UsuarioPortal) {
-    if (!confirm(`Reativar o acesso de "${usuario.nome}" ao portal?`)) return;
+    const ok = await confirmAction(`Reativar o acesso de "${usuario.nome}" ao portal?`, {
+      title: "Reativar usuário",
+      confirmLabel: "Reativar",
+    });
+    if (!ok) return;
     try {
       await licensingApi.updateUsuario(usuario.id, { ativo: true });
       refresh();
@@ -70,7 +75,11 @@ export default function UsuariosTab() {
   }
 
   async function handleDesativar(usuario: UsuarioPortal) {
-    if (!confirm(`Desativar o acesso de "${usuario.nome}" ao portal? O cadastro e o histórico são mantidos, e o acesso pode ser reativado depois.`)) return;
+    const ok = await confirmAction(
+      `Desativar o acesso de "${usuario.nome}" ao portal? O cadastro e o histórico são mantidos, e o acesso pode ser reativado depois.`,
+      { title: "Desativar usuário", confirmLabel: "Desativar" }
+    );
+    if (!ok) return;
     try {
       await licensingApi.updateUsuario(usuario.id, { ativo: false });
       refresh();
@@ -80,7 +89,11 @@ export default function UsuariosTab() {
   }
 
   async function handleSolicitarSenha(usuario: UsuarioPortal) {
-    if (!confirm(`Enviar e-mail de redefinição de senha para "${usuario.nome}"?`)) return;
+    const ok = await confirmAction(`Enviar e-mail de redefinição de senha para "${usuario.nome}"?`, {
+      title: "Redefinir senha",
+      confirmLabel: "Enviar",
+    });
+    if (!ok) return;
     setSendingSenhaId(usuario.id);
     try {
       await licensingApi.solicitarSenhaUsuario(usuario.id);

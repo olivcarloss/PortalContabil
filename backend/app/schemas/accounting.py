@@ -123,3 +123,17 @@ class LancamentoAnalitico(BaseModel):
     saldo: float | None = None
     conciliado: bool | None = None
     observacao: str | None = None
+
+
+class ContaContabilResumo(BaseModel):
+    cnpj_id: UUID
+    cnpj: str
+    razao_social: str
+    cliente_nome: str
+    codigo: str
+    descricao: str | None = None
+    tipo: str | None = None
+    total_debito: float
+    total_credito: float
+    saldo: float
+    qtd_lancamentos: int
