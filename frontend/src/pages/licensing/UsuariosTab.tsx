@@ -57,6 +57,16 @@ export default function UsuariosTab() {
     }
   }
 
+  async function handleReativar(usuario: UsuarioPortal) {
+    if (!confirm(`Reativar o acesso de "${usuario.nome}" ao portal?`)) return;
+    try {
+      await licensingApi.updateUsuario(usuario.id, { ativo: true });
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   async function handleSolicitarSenha(usuario: UsuarioPortal) {
     if (!confirm(`Enviar e-mail de redefinição de senha para "${usuario.nome}"?`)) return;
     setSendingSenhaId(usuario.id);
@@ -176,9 +186,15 @@ export default function UsuariosTab() {
                         <button className="icon-btn" title="Editar" onClick={() => setEditingUsuario(u)}>
                           ✎
                         </button>
-                        <button className="icon-btn" title="Desativar" onClick={() => handleDelete(u)}>
-                          🗑
-                        </button>
+                        {u.ativo ? (
+                          <button className="icon-btn" title="Desativar" onClick={() => handleDelete(u)}>
+                            🗑
+                          </button>
+                        ) : (
+                          <button className="icon-btn" title="Reativar" onClick={() => handleReativar(u)}>
+                            ♻️
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
