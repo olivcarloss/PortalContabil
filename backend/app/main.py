@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.modules.accounting.router import router as accounting_router
 from app.modules.admin.router import router as admin_router
 from app.modules.licensing.router import router as licensing_router
+from app.modules.public.router import router as public_router
 
 app = FastAPI(title="PortalContabil.cloud API", version="0.1.0")
 
@@ -19,6 +20,7 @@ app.add_middleware(
 app.include_router(licensing_router, prefix="/api")
 app.include_router(accounting_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(public_router, prefix="/api")
 
 
 @app.get("/api/health")

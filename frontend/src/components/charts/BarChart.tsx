@@ -5,7 +5,7 @@ interface BarItem {
 
 export default function BarChart({
   items,
-  color = "#534AB7",
+  color = "#185fa5",
   formatValue = (v: number) => String(v),
 }: {
   items: BarItem[];

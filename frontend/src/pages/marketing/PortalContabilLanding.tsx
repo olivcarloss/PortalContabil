@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode, type SVGProps } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode, type SVGProps } from "react";
+import { publicApi } from "../../api/public";
 import "./rodrisaas.css";
 
 const CAROUSEL_SLIDES = [
@@ -133,7 +134,18 @@ const WhatsAppIcon = (p: IconProps) => (
     <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Z" />
   </svg>
 );
-
+const MailIcon = (p: IconProps) => (
+  <svg {...iconBase} {...p} aria-hidden="true">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </svg>
+);
+const ClockIcon = (p: IconProps) => (
+  <svg {...iconBase} {...p} aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 3" />
+  </svg>
+);
 /* ------------------------------------------------------------------ */
 
 const BENEFITS: { icon: (p: IconProps) => ReactNode; title: string; desc: string }[] = [
@@ -291,6 +303,24 @@ function ImageCarousel() {
 
 export default function PortalContabilLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [contatoForm, setContatoForm] = useState({ nome: "", email: "", escritorio: "", assunto: "", mensagem: "" });
+  const [enviandoContato, setEnviandoContato] = useState(false);
+  const [contatoFeedback, setContatoFeedback] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function handleEnviarContato(e: FormEvent) {
+    e.preventDefault();
+    setEnviandoContato(true);
+    setContatoFeedback(null);
+    try {
+      await publicApi.enviarContato(contatoForm);
+      setContatoFeedback({ ok: true, texto: "Mensagem enviada! Nossa equipe responde em breve." });
+      setContatoForm({ nome: "", email: "", escritorio: "", assunto: "", mensagem: "" });
+    } catch (err) {
+      setContatoFeedback({ ok: false, texto: (err as Error).message });
+    } finally {
+      setEnviandoContato(false);
+    }
+  }
 
   return (
     <div className="rs">
@@ -303,12 +333,14 @@ export default function PortalContabilLanding() {
             PortalContabil.cloud
           </a>
           <div className="rs-nav-links">
+            <a href="#top">Início</a>
             <a href="#recursos">Recursos</a>
             <a href="#como-funciona">Como funciona</a>
             <a href="#faq">FAQ</a>
+            <a href="#contato">Contato</a>
           </div>
           <div className="rs-nav-actions">
-            <a href="/login" className="rs-btn rs-btn-secondary">
+            <a href="/login" className="rs-btn rs-btn-login">
               Entrar
             </a>
             <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="rs-btn rs-btn-primary">
@@ -450,20 +482,129 @@ export default function PortalContabilLanding() {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="rs-section">
+      {/* Contato */}
+      <section className="rs-section" id="contato" style={{ background: "var(--rs-bg-alt)" }}>
         <div className="rs-container">
-          <div className="rs-final-cta">
-            <h2>Pronto para organizar o seu escritório?</h2>
-            <p>Fale com a gente pelo WhatsApp e conheça o PortalContabil.cloud, ou entre direto se já tem cadastro.</p>
-            <div className="rs-final-cta-actions">
-              <a href="/login" className="rs-btn rs-btn-primary rs-btn-lg">
-                Entrar no portal
-                <ArrowRightIcon width={17} height={17} />
-              </a>
-              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="rs-btn rs-btn-secondary rs-btn-lg">
-                Falar no WhatsApp
-              </a>
+          <div className="rs-section-head">
+            <h2 className="rs-heading-2">Pronto para o próximo passo?</h2>
+            <p className="rs-subheading">Fale com a gente e entenda como o PortalContabil.cloud se encaixa no seu escritório.</p>
+          </div>
+
+          <div className="rs-contact-grid">
+            <div className="rs-contact-card">
+              <div className="rs-contact-icon">
+                <MailIcon width={22} height={22} />
+              </div>
+              <h3>Envie uma mensagem</h3>
+              <p>Conte um pouco sobre o seu escritório e a gente retorna o quanto antes.</p>
+
+              <form onSubmit={handleEnviarContato}>
+                <div className="rs-input-group">
+                  <label htmlFor="cf-nome">Nome</label>
+                  <input
+                    id="cf-nome"
+                    type="text"
+                    required
+                    value={contatoForm.nome}
+                    onChange={(e) => setContatoForm((f) => ({ ...f, nome: e.target.value }))}
+                    placeholder="Seu nome completo"
+                  />
+                </div>
+                <div className="rs-input-group">
+                  <label htmlFor="cf-email">E-mail</label>
+                  <input
+                    id="cf-email"
+                    type="email"
+                    required
+                    value={contatoForm.email}
+                    onChange={(e) => setContatoForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="seu@escritorio.com.br"
+                  />
+                </div>
+                <div className="rs-input-group">
+                  <label htmlFor="cf-escritorio">Escritório</label>
+                  <input
+                    id="cf-escritorio"
+                    type="text"
+                    value={contatoForm.escritorio}
+                    onChange={(e) => setContatoForm((f) => ({ ...f, escritorio: e.target.value }))}
+                    placeholder="Nome do escritório"
+                  />
+                </div>
+                <div className="rs-input-group">
+                  <label htmlFor="cf-assunto">Assunto</label>
+                  <select
+                    id="cf-assunto"
+                    value={contatoForm.assunto}
+                    onChange={(e) => setContatoForm((f) => ({ ...f, assunto: e.target.value }))}
+                  >
+                    <option value="">Selecione...</option>
+                    <option>Conhecer o portal</option>
+                    <option>Dúvida sobre licenciamento</option>
+                    <option>Suporte a um escritório já cadastrado</option>
+                    <option>Outro assunto</option>
+                  </select>
+                </div>
+                <div className="rs-input-group">
+                  <label htmlFor="cf-mensagem">Mensagem</label>
+                  <textarea
+                    id="cf-mensagem"
+                    required
+                    value={contatoForm.mensagem}
+                    onChange={(e) => setContatoForm((f) => ({ ...f, mensagem: e.target.value }))}
+                    placeholder="Descreva brevemente o que você precisa..."
+                  />
+                </div>
+                <button type="submit" className="rs-btn rs-btn-primary rs-btn-block" disabled={enviandoContato}>
+                  {enviandoContato ? "Enviando..." : "Enviar mensagem"}
+                </button>
+                {contatoFeedback && (
+                  <div className={`rs-form-feedback${contatoFeedback.ok ? " is-ok" : " is-error"}`}>
+                    {contatoFeedback.texto}
+                  </div>
+                )}
+              </form>
+            </div>
+
+            <div className="rs-contact-side">
+              <div className="rs-whatsapp-card">
+                <div className="rs-whatsapp-card-icon">
+                  <WhatsAppIcon width={26} height={26} />
+                </div>
+                <h3>Conversa rápida no WhatsApp</h3>
+                <p>Prefere falar direto com a gente? Manda uma mensagem e já iniciamos a conversa.</p>
+                <ul className="rs-whatsapp-list">
+                  <li>Resposta rápida, sem burocracia</li>
+                  <li>Tira dúvidas sobre o portal com quem usa no dia a dia</li>
+                  <li>Sem compromisso</li>
+                </ul>
+                <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="rs-whatsapp-card-btn">
+                  <WhatsAppIcon width={20} height={20} />
+                  Falar no WhatsApp
+                </a>
+              </div>
+
+              <div className="rs-contact-info-card">
+                <div className="rs-contact-info-label">Outras formas de contato</div>
+                <div className="rs-contact-info-row">
+                  <div className="rs-contact-info-icon">
+                    <MailIcon width={16} height={16} />
+                  </div>
+                  <div>
+                    <div className="rs-contact-info-caption">E-mail</div>
+                    <div className="rs-contact-info-value">contato@portalcontabil.cloud</div>
+                  </div>
+                </div>
+                <div className="rs-contact-info-row">
+                  <div className="rs-contact-info-icon">
+                    <ClockIcon width={16} height={16} />
+                  </div>
+                  <div>
+                    <div className="rs-contact-info-caption">Atendimento</div>
+                    <div className="rs-contact-info-value">Respondemos o mais rápido possível</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -481,11 +622,6 @@ export default function PortalContabilLanding() {
                 PortalContabil.cloud
               </a>
               <p>Portal de licenciamento, gestão de clientes e conciliação contábil para escritórios de contabilidade.</p>
-              <div className="rs-footer-social">
-                <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" aria-label="Falar no WhatsApp">
-                  <WhatsAppIcon width={18} height={18} />
-                </a>
-              </div>
             </div>
             <div className="rs-footer-col">
               <h5>Produto</h5>
@@ -514,11 +650,15 @@ export default function PortalContabilLanding() {
             <span>
               © {new Date().getFullYear()} PortalContabil.cloud. Todos os direitos reservados.
               <span className="rs-footer-version"> · v{__APP_VERSION__}</span>
+              <br className="rs-footer-devby-break" />
+              <span className="rs-footer-devby">
+                {" "}
+                · Desenvolvido por{" "}
+                <a href="https://www.ia-cloude.com" target="_blank" rel="noopener noreferrer">
+                  IA-Cloude
+                </a>
+              </span>
             </span>
-            <div className="rs-footer-bottom-links">
-              <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">WhatsApp</a>
-              <a href="/login">Entrar</a>
-            </div>
           </div>
         </div>
       </footer>

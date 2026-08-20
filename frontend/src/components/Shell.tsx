@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import {
   MENU_ADMIN_VISAO_GERAL,
@@ -41,6 +41,7 @@ const REPORT_LINKS = [
 export default function Shell() {
   const { session, signOut, hasMenu } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [licensingOpen, setLicensingOpen] = useState(location.pathname.startsWith("/licenciamento"));
   const [reportsOpen, setReportsOpen] = useState(location.pathname.startsWith("/contabil/relatorios"));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -164,7 +165,10 @@ export default function Shell() {
         <div style={{ marginTop: "auto", fontSize: "0.85rem", opacity: 0.85 }}>
           <div style={{ marginBottom: "0.5rem", wordBreak: "break-word" }}>{session?.user.email}</div>
           <button
-            onClick={() => signOut()}
+            onClick={async () => {
+              await signOut();
+              navigate("/", { replace: true });
+            }}
             className="btn btn-secondary btn-sidebar"
             style={{ width: "100%" }}
           >
@@ -235,7 +239,7 @@ function SidebarLink({
         borderRadius: "var(--radius-sm)",
         color: "white",
         textDecoration: "none",
-        background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
+        background: isActive ? "#EA580C" : "transparent",
         fontWeight: isActive ? 600 : 400,
       })}
     >

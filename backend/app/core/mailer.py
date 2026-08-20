@@ -79,3 +79,35 @@ def send_email_with_attachment(
             server.sendmail(settings.smtp_from, destinatarios, msg.as_string())
     except (smtplib.SMTPException, OSError) as exc:
         raise MailerError(f"Falha ao enviar e-mail: {exc}") from exc
+
+
+def send_plain_email(
+    destinatarios: list[str],
+    assunto: str,
+    html_body: str,
+    reply_to: str | None = None,
+) -> None:
+    """Envia um e-mail simples, sem anexo — usado pelo formulário de
+    contato da home pública."""
+    if not settings.smtp_host:
+        raise MailerError(
+            "Envio de e-mail nao configurado. Peca ao administrador do sistema para "
+            "definir SMTP_HOST/SMTP_USER/SMTP_PASSWORD no servidor."
+        )
+
+    msg = MIMEMultipart()
+    msg["Subject"] = assunto
+    msg["From"] = settings.smtp_from
+    msg["To"] = ", ".join(destinatarios)
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
+            server.starttls()
+            if settings.smtp_user:
+                server.login(settings.smtp_user, settings.smtp_password)
+            server.sendmail(settings.smtp_from, destinatarios, msg.as_string())
+    except (smtplib.SMTPException, OSError) as exc:
+        raise MailerError(f"Falha ao enviar e-mail: {exc}") from exc

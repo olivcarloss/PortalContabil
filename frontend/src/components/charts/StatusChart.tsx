@@ -9,7 +9,7 @@ const STATUS_COLORS: Record<string, string> = {
   vencida: "#c0392b",
 };
 
-const FALLBACK_COLOR = "#7F77DD";
+const FALLBACK_COLOR = "#378ADD";
 
 function colorFor(status: string): string {
   return STATUS_COLORS[status.toLowerCase()] ?? FALLBACK_COLOR;

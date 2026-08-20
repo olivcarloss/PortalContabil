@@ -1,36 +1,41 @@
 :root {
-  --color-primary: #534AB7;
-  --color-primary-dark: #3f38a0;
-  --color-secondary: #7F77DD;
-  --color-accent: #EA580C;
-  --color-accent-light: #FFF4E6;
+  /* Paleta espelhada do site institucional ia-cloude.com — azul como cor
+     primária (não mais roxo), com teal/âmbar/roxo como acentos pontuais. */
+  --color-primary: #185fa5;
+  --color-primary-dark: #0C447C;
+  --color-secondary: #378ADD;
+  --color-accent: #185fa5;
+  --color-accent-light: #E6F1FB;
+  --color-teal: #1D9E75;
+  --color-purple: #534AB7;
   --color-bg: #f8f7f4;
   --color-surface: #ffffff;
-  --color-surface-alt: #EEEDFE;
-  --color-border: #e5e1f5;
-  --color-text: #1f1b3a;
-  --color-text-secondary: #4a4560;
-  --color-text-muted: #6b7280;
+  --color-surface-alt: #F1EFE8;
+  --color-border: #D3D1C7;
+  --color-text: #2C2C2A;
+  --color-text-secondary: #444441;
+  --color-text-muted: #5F5E5A;
   --color-success: #16a34a;
-  --color-success-light: #F0FDF4;
-  --color-warning: #f59e0b;
-  --color-warning-light: #fef3c7;
+  --color-success-light: #f0fdf4;
+  --color-warning: #854F0B;
+  --color-warning-light: #FAEEDA;
   --color-danger: #c0392b;
 
   /* Reserved for sparing accents only (hero glows, featured badges) —
      never used as a general UI color, keeping the interface monochrome. */
-  --grad-a: #6d5bf5;
-  --grad-b: #3b82f6;
+  --grad-a: #185fa5;
+  --grad-b: #1D9E75;
 
   --font-heading: "Inter", -apple-system, sans-serif;
   --font-body: "Inter", -apple-system, sans-serif;
 
-  --radius-sm: 8px;
+  --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 20px;
+  --radius-xl: 28px;
 
   --shadow-card: 0 1px 2px rgba(10, 10, 10, 0.04), 0 8px 20px -10px rgba(10, 10, 10, 0.1);
-  --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 6px 16px -8px rgba(0, 0, 0, 0.45);
+  --shadow-btn: 0 4px 16px -6px rgba(24, 95, 165, 0.4);
 }
 
 * {
@@ -75,11 +80,11 @@ button {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.6rem 1.2rem;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   font-weight: 600;
   font-size: 0.9rem;
-  transition: opacity 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .btn:active {
@@ -93,18 +98,19 @@ button {
 }
 
 .btn-primary:hover {
-  opacity: 0.92;
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
+  background: var(--color-primary-dark);
+  color: #ffffff;
+  border: 1.5px solid var(--color-primary-dark);
 }
 
 .btn-secondary:hover {
-  border-color: #cfcfd4;
-  background: var(--color-surface-alt);
+  background: #042C53;
+  border-color: #042C53;
 }
 
 .btn-danger {
@@ -120,9 +126,9 @@ button {
 /* Variante para uso sobre fundos escuros (ex.: barra lateral) — mesmo
    laranja de destaque usado no .btn-primary nas demais telas. */
 .btn-sidebar {
-  background: var(--color-accent);
+  background: #EA580C;
   color: white;
-  border-color: var(--color-accent);
+  border-color: #EA580C;
 }
 
 .btn-sidebar:hover {
