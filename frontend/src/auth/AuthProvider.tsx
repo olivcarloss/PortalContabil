@@ -39,8 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  const userId = session?.user.id ?? null;
+
   useEffect(() => {
-    if (!session) {
+    if (!userId) {
       setProfile(null);
       setProfileLoading(false);
       return;
@@ -51,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(setProfile)
       .catch(() => setProfile(null))
       .finally(() => setProfileLoading(false));
-  }, [session]);
+  }, [userId]);
 
   function hasMenu(menuCodigo: string) {
     return profile?.menus.includes(menuCodigo) ?? false;

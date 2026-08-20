@@ -107,22 +107,38 @@ def send_password_reset(user_id: str) -> None:
 def get_users_meta(ids: list[str]) -> dict[str, dict]:
     """Returns {id: {"convite_status": "pendente"|"ativo", "email": str|None}}
     for each auth.users id, based on whether the invite has been accepted
-    (email_confirmed_at set)."""
-    result: dict[str, dict] = {}
-    for user_id in ids:
+    (email_confirmed_at set).
+
+    Uses the paginated listing endpoint instead of one GET per id, so a
+    screen with N users costs a handful of requests (bounded by per_page)
+    instead of N requests."""
+    wanted = set(ids)
+    result: dict[str, dict] = {user_id: {"convite_status": "pendente", "email": None} for user_id in wanted}
+    page = 1
+    per_page = 200
+    while wanted:
         resp = httpx.get(
-            f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
+            f"{settings.supabase_url}/auth/v1/admin/users",
             headers=_headers(),
+            params={"page": page, "per_page": per_page},
             timeout=10,
         )
         if resp.status_code != 200:
-            result[user_id] = {"convite_status": "pendente", "email": None}
-            continue
-        user = resp.json()
-        result[user_id] = {
-            "convite_status": "ativo" if user.get("email_confirmed_at") else "pendente",
-            "email": user.get("email"),
-        }
+            break
+        users = resp.json().get("users", [])
+        if not users:
+            break
+        for user in users:
+            user_id = user.get("id")
+            if user_id in wanted:
+                result[user_id] = {
+                    "convite_status": "ativo" if user.get("email_confirmed_at") else "pendente",
+                    "email": user.get("email"),
+                }
+                wanted.discard(user_id)
+        if len(users) < per_page:
+            break
+        page += 1
     return result
 
 

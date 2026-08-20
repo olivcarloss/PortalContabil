@@ -1,4 +1,14 @@
+import pytest
+
+from app.modules.licensing import renovacao
 from app.modules.licensing.renovacao import renovar_licencas_vencidas, _RENOVAR_SQL
+
+
+@pytest.fixture(autouse=True)
+def _reset_daily_guard():
+    renovacao._ultima_execucao = None
+    yield
+    renovacao._ultima_execucao = None
 
 
 class FakeCursor:
@@ -55,3 +65,14 @@ def test_sql_increments_by_periodicidade():
     assert "when 'anual' then 365" in _RENOVAR_SQL
     assert "interval '1 year'" in _RENOVAR_SQL
     assert "interval '1 month'" in _RENOVAR_SQL
+
+
+def test_second_call_same_day_skips_update_and_commit():
+    conn = FakeConn(rows=[{"id": "l1"}])
+    assert renovar_licencas_vencidas(conn) == 1
+    assert conn._cursor.executed_sql == _RENOVAR_SQL
+
+    conn2 = FakeConn(rows=[{"id": "l2"}])
+    assert renovar_licencas_vencidas(conn2) == 0
+    assert conn2._cursor.executed_sql is None
+    assert conn2.committed is False
