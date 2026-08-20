@@ -1,5 +1,5 @@
 // Paleta monocromática premium, mesma linguagem visual da landing page
-// RodriSaas (/rodrisaas) — ver frontend/src/theme/global.css para os
+// pública (/inicio) — ver frontend/src/theme/global.css para os
 // custom properties equivalentes usados em runtime.
 
 export const colors = {

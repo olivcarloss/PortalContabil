@@ -10,7 +10,7 @@
   --rs-surface: #ffffff;
   --rs-border: #e5e5e8;
   --rs-border-soft: #eeeeef;
-  --rs-grad-a: #6d5bf5;
+  --rs-grad-a: #534ab7;
   --rs-grad-b: #3b82f6;
   --rs-radius-sm: 8px;
   --rs-radius-md: 14px;
@@ -959,4 +959,33 @@
 .rs button:focus-visible {
   outline: 2px solid #0a0a0a;
   outline-offset: 2px;
+}
+
+/* WhatsApp floating button */
+.rs-whatsapp-fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #fff;
+  box-shadow: var(--rs-shadow-lg);
+  transition: transform 0.15s ease;
+}
+.rs-whatsapp-fab:hover {
+  transform: scale(1.06);
+}
+@media (max-width: 640px) {
+  .rs-whatsapp-fab {
+    right: 1rem;
+    bottom: 1rem;
+    width: 50px;
+    height: 50px;
+  }
 }

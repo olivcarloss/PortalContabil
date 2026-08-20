@@ -11,10 +11,11 @@ import {
 } from "../auth/menus";
 
 // Ordem de prioridade: manda o usuario para a primeira tela que o perfil
-// dele realmente libera, em vez de assumir Portal Contábil para todo mundo.
+// dele realmente libera. Login sempre abre a One Page de Produtos para quem
+// tem acesso a ela; só cai para as outras telas quando o perfil não libera.
 const HOME_PRIORITY: Array<{ menu: string; to: string }> = [
-  { menu: MENU_PORTAL_CONTABIL, to: "/contabil" },
   { menu: MENU_ADMIN_VISAO_GERAL, to: "/visao-geral" },
+  { menu: MENU_PORTAL_CONTABIL, to: "/contabil" },
   { menu: MENU_LICENCIAMENTO_VISAO_GERAL, to: "/licenciamento" },
   { menu: MENU_LICENCIAMENTO_PRODUTOS, to: "/licenciamento/produtos" },
   { menu: MENU_LICENCIAMENTO_ESCRITORIOS, to: "/licenciamento/clientes" },
