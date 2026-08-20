@@ -45,7 +45,7 @@ export default function UsuariosTab() {
   async function handleDelete(usuario: UsuarioPortal) {
     if (
       !confirm(
-        `Desativar o acesso de "${usuario.nome}" ao portal? A conta e o histórico de licenças são mantidos e o acesso pode ser reativado depois.`
+        `Excluir o usuário "${usuario.nome}"? Se ele já tiver licenças concedidas ou escritórios administrados, o acesso será apenas desativado (reversível); caso contrário, o cadastro é removido definitivamente.`
       )
     )
       return;
@@ -187,7 +187,7 @@ export default function UsuariosTab() {
                           ✎
                         </button>
                         {u.ativo ? (
-                          <button className="icon-btn" title="Desativar" onClick={() => handleDelete(u)}>
+                          <button className="icon-btn" title="Excluir" onClick={() => handleDelete(u)}>
                             🗑
                           </button>
                         ) : (

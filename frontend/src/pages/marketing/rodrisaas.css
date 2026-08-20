@@ -57,12 +57,12 @@
 }
 
 .rs-section {
-  padding: 72px 0;
+  padding: 28px 0;
 }
 
 @media (max-width: 768px) {
   .rs-section {
-    padding: 48px 0;
+    padding: 20px 0;
   }
 }
 
@@ -106,7 +106,7 @@
 
 .rs-section-head {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 /* Buttons */
@@ -231,7 +231,7 @@
 /* Hero */
 .rs-hero {
   position: relative;
-  padding: 72px 0 56px;
+  padding: 48px 0 28px;
   overflow: hidden;
   text-align: center;
 }
@@ -283,123 +283,7 @@
   justify-content: center;
   gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 40px;
-}
-
-.rs-hero-mock {
-  position: relative;
-  max-width: 900px;
-  margin: 0 auto;
-  border-radius: var(--rs-radius-lg);
-  border: 1px solid var(--rs-border);
-  background: linear-gradient(180deg, #ffffff, #fafafa);
-  box-shadow: var(--rs-shadow-lg);
-  padding: 10px;
-}
-
-.rs-hero-mock-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
-}
-
-.rs-hero-mock-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #e2e2e5;
-}
-
-/* A prévia reproduz o layout real do produto (sidebar roxa + conteúdo
-   claro), em vez de barras abstratas — deve dar pra reconhecer o app. */
-.rs-hero-mock-screen {
-  border-radius: 12px;
-  background: #fafafa;
-  aspect-ratio: 16 / 7.5;
-  display: grid;
-  grid-template-columns: 168px 1fr;
-  overflow: hidden;
-  text-align: left;
-}
-
-.rs-hero-mock-side {
-  background: linear-gradient(160deg, var(--rs-grad-a), #423a94);
-  padding: 16px 14px;
-  display: none;
-}
-
-@media (min-width: 640px) {
-  .rs-hero-mock-side {
-    display: block;
-  }
-}
-
-.rs-hero-mock-brand {
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  margin-bottom: 14px;
-  opacity: 0.95;
-}
-
-.rs-hero-mock-navitem {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 10.5px;
-  font-weight: 500;
-  padding: 7px 8px;
-  border-radius: 6px;
-  margin-bottom: 3px;
-}
-
-.rs-hero-mock-navitem.is-active {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
-  font-weight: 600;
-}
-
-.rs-hero-mock-main {
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.rs-hero-mock-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--rs-ink);
-}
-
-.rs-hero-mock-stat {
-  flex: 1;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid var(--rs-border);
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.rs-hero-mock-stat-value {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--rs-ink);
-}
-
-.rs-hero-mock-stat-label {
-  font-size: 9.5px;
-  color: var(--rs-muted);
-}
-
-.rs-hero-mock-block {
-  flex: 1;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid var(--rs-border);
-  min-height: 60px;
+  margin-bottom: 0;
 }
 
 /* Trusted by */
@@ -837,7 +721,7 @@
 .rs-final-cta {
   border-radius: 28px;
   background: linear-gradient(160deg, #1a1730 0%, #2a2352 55%, var(--rs-grad-a) 100%);
-  padding: 56px 40px;
+  padding: 36px 40px;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -897,14 +781,14 @@
 /* Footer */
 .rs-footer {
   border-top: 1px solid var(--rs-border-soft);
-  padding: 64px 0 32px;
+  padding: 32px 0 20px;
 }
 
 .rs-footer-top {
   display: grid;
-  grid-template-columns: 1.4fr repeat(4, 1fr);
+  grid-template-columns: 1.4fr repeat(3, 1fr);
   gap: 32px;
-  margin-bottom: 56px;
+  margin-bottom: 24px;
 }
 
 @media (max-width: 860px) {
@@ -990,6 +874,11 @@
 .rs-footer-bottom-links {
   display: flex;
   gap: 20px;
+}
+
+.rs-footer-version {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
 }
 
 .rs-footer-bottom-links a:hover {

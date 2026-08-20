@@ -140,3 +140,19 @@ def update_user_email(user_id: str, email: str) -> None:
         body = resp.json() if resp.content else {}
         message = body.get("msg") or body.get("message") or body.get("error_description") or resp.text
         raise SupabaseAdminError(message)
+
+
+def delete_user(user_id: str) -> None:
+    """Removes the auth.users account entirely — used only when the portal
+    profile itself is being hard-deleted (no history to preserve), so the
+    e-mail becomes free to register again instead of tripping "already
+    registered" on the next invite attempt."""
+    resp = httpx.delete(
+        f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
+        headers=_headers(),
+        timeout=10,
+    )
+    if resp.status_code not in (200, 204):
+        body = resp.json() if resp.content else {}
+        message = body.get("msg") or body.get("message") or body.get("error_description") or resp.text
+        raise SupabaseAdminError(message)

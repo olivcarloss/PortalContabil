@@ -168,6 +168,12 @@ export default function Shell() {
           >
             Sair
           </button>
+          <div
+            style={{ marginTop: "0.6rem", fontSize: "0.7rem", opacity: 0.55, textAlign: "center" }}
+            title={__APP_BUILD_DATE__ ? `Build de ${__APP_BUILD_DATE__}` : undefined}
+          >
+            © {new Date().getFullYear()} PortalContabil.cloud · v{__APP_VERSION__}
+          </div>
         </div>
       </aside>
       <main className="app-main">
@@ -182,7 +188,27 @@ export default function Shell() {
           <Outlet />
         </div>
       </main>
+      <a
+        href={WHATSAPP_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="app-whatsapp-fab"
+        aria-label="Falar no WhatsApp"
+      >
+        <WhatsAppIcon />
+      </a>
     </div>
+  );
+}
+
+const WHATSAPP_URL = "https://wa.me/5511988402174?text=" + encodeURIComponent("Olá! Preciso de ajuda com o PortalContabil.cloud.");
+
+function WhatsAppIcon() {
+  return (
+    <svg width={26} height={26} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.5.1-.3-.1-1.2-.4-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5C11 9 10.5 7.7 10.3 7.2c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.1 3c.1.2 2 3 4.8 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.3.2-.7.2-1.2.2-1.3-.1-.1-.3-.2-.5-.3z" />
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Z" />
+    </svg>
   );
 }
 

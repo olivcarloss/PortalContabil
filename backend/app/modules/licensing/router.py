@@ -507,13 +507,30 @@ def update_cliente(
 def delete_cliente(
     cliente_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
 ):
-    """Inativa o escritorio (soft delete) em vez de excluir fisicamente: exclusao
-    fisica faria cascade em cnpjs/licencas/usuarios e apagaria conciliacoes e
-    lancamentos contabeis reais desses CNPJs."""
+    """Exclui o escritorio definitivamente se ele nunca chegou a ter CNPJ,
+    licenca ou usuario cadastrado — nesse caso nao ha nada a preservar.
+    Havendo qualquer um desses, inativa (soft delete) em vez de excluir: a
+    exclusao fisica faria cascade em cnpjs/licencas/usuarios e apagaria
+    conciliacoes e lancamentos contabeis reais desses CNPJs."""
     with get_conn() as conn:
         papel, _ = get_escopo(conn, user.id)
         require_papel_master(papel)
     with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("select count(*) as n from cnpjs where cliente_id = %s;", (cliente_id,))
+        tem_cnpjs = cur.fetchone()["n"] > 0
+        cur.execute("select count(*) as n from licencas where cliente_id = %s;", (cliente_id,))
+        tem_licencas = cur.fetchone()["n"] > 0
+        cur.execute("select count(*) as n from usuarios_portal where cliente_id = %s;", (cliente_id,))
+        tem_usuarios = cur.fetchone()["n"] > 0
+
+        if not tem_cnpjs and not tem_licencas and not tem_usuarios:
+            cur.execute("delete from clientes where id = %s returning *;", (cliente_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Escritorio nao encontrado")
+            conn.commit()
+            return row
+
         cur.execute(
             "update clientes set ativo = false where id = %s returning *;", (cliente_id,)
         )
@@ -692,11 +709,27 @@ def update_cnpj(
 def delete_cnpj(
     cnpj_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
 ):
-    """Inativa o cliente/CNPJ (soft delete): exclusao fisica faria cascade em
-    conciliacoes e lancamentos contabeis reais desse CNPJ."""
+    """Exclui o cliente/CNPJ definitivamente se ele nunca teve conciliacao
+    ou licenca propria — nesse caso nao ha nada a preservar. Havendo
+    qualquer uma delas, inativa (soft delete): a exclusao fisica faria
+    cascade em conciliacoes e lancamentos contabeis reais desse CNPJ."""
     with get_conn() as conn, conn.cursor() as cur:
         papel, escopo = get_escopo(conn, user.id)
         require_escopo_cliente(_cnpj_cliente_id(cur, cnpj_id), papel, escopo)
+
+        cur.execute("select count(*) as n from conciliacoes where cnpj_id = %s;", (cnpj_id,))
+        tem_conciliacoes = cur.fetchone()["n"] > 0
+        cur.execute("select count(*) as n from licencas where cnpj_id = %s;", (cnpj_id,))
+        tem_licencas = cur.fetchone()["n"] > 0
+
+        if not tem_conciliacoes and not tem_licencas:
+            cur.execute("delete from cnpjs where id = %s returning *;", (cnpj_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Cliente (CNPJ) nao encontrado")
+            conn.commit()
+            return row
+
         cur.execute(
             "update cnpjs set ativo = false where id = %s returning *;", (cnpj_id,)
         )
@@ -1452,9 +1485,14 @@ def solicitar_senha_usuario(
 def delete_usuario(
     usuario_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
 ):
-    """Revoga o acesso do usuario ao portal (inativa) sem apagar a conta de
-    autenticacao nem o historico de vinculos com licencas — reversivel
-    reativando (PATCH ativo=true)."""
+    """Exclui o cadastro definitivamente quando nao ha nenhum historico
+    vinculado (nunca teve licenca concedida nem administrou escritorio) —
+    inclusive apagando a conta de autenticacao, para o e-mail ficar livre
+    pra um novo convite. Havendo historico, cai no comportamento antigo:
+    so inativa (reversivel via PATCH ativo=true)."""
+    if str(usuario_id) == user.id:
+        raise HTTPException(status_code=422, detail="Voce nao pode excluir/desativar seu proprio usuario")
+
     with get_conn() as conn, conn.cursor() as cur:
         papel_ator, escopo_ator = get_escopo(conn, user.id)
         cur.execute("select cliente_id from usuarios_portal where id = %s;", (usuario_id,))
@@ -1462,6 +1500,23 @@ def delete_usuario(
         if alvo is None:
             raise HTTPException(status_code=404, detail="Usuario nao encontrado")
         require_escopo_cliente(str(alvo["cliente_id"]), papel_ator, escopo_ator)
+
+        cur.execute("select count(*) as n from usuario_licencas where usuario_id = %s;", (usuario_id,))
+        tem_licencas = cur.fetchone()["n"] > 0
+        cur.execute("select count(*) as n from administrador_clientes where usuario_id = %s;", (usuario_id,))
+        tem_administracao = cur.fetchone()["n"] > 0
+
+        if not tem_licencas and not tem_administracao:
+            cur.execute("delete from usuarios_portal where id = %s returning id;", (usuario_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+            conn.commit()
+            try:
+                supabase_admin.delete_user(str(usuario_id))
+            except supabase_admin.SupabaseAdminError:
+                pass  # perfil ja removido; conta de auth orfa nao bloqueia nada alem de nao poder ser reconvidada
+            return {"deleted": True, "inativado": False}
 
         cur.execute(
             "update usuarios_portal set ativo = false where id = %s returning id;",

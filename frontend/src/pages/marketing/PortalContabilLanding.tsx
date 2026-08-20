@@ -342,42 +342,6 @@ export default function PortalContabilLanding() {
               Ver como funciona
             </a>
           </div>
-
-          <div className="rs-hero-mock" role="img" aria-label="Prévia do Portal Contábil">
-            <div className="rs-hero-mock-bar">
-              <span className="rs-hero-mock-dot" />
-              <span className="rs-hero-mock-dot" />
-              <span className="rs-hero-mock-dot" />
-            </div>
-            <div className="rs-hero-mock-screen">
-              <div className="rs-hero-mock-side">
-                <div className="rs-hero-mock-brand">PortalContabil.cloud</div>
-                {["One Page de Produtos", "Portal de Licenciamento", "Portal Contábil", "Relatórios"].map(
-                  (label, i) => (
-                    <div key={label} className={`rs-hero-mock-navitem${i === 2 ? " is-active" : ""}`}>
-                      {label}
-                    </div>
-                  )
-                )}
-              </div>
-              <div className="rs-hero-mock-main">
-                <div className="rs-hero-mock-title">Portal Contábil</div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  {[
-                    { label: "Escritórios", value: "12" },
-                    { label: "Licenças ativas", value: "34" },
-                    { label: "Relatórios exportados", value: "128" },
-                  ].map((stat) => (
-                    <div key={stat.label} className="rs-hero-mock-stat">
-                      <span className="rs-hero-mock-stat-value">{stat.value}</span>
-                      <span className="rs-hero-mock-stat-label">{stat.label}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="rs-hero-mock-block" />
-              </div>
-            </div>
-          </div>
         </div>
       </header>
 
@@ -547,7 +511,10 @@ export default function PortalContabilLanding() {
             </div>
           </div>
           <div className="rs-footer-bottom">
-            <span>© {new Date().getFullYear()} PortalContabil.cloud. Todos os direitos reservados.</span>
+            <span>
+              © {new Date().getFullYear()} PortalContabil.cloud. Todos os direitos reservados.
+              <span className="rs-footer-version"> · v{__APP_VERSION__}</span>
+            </span>
             <div className="rs-footer-bottom-links">
               <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">WhatsApp</a>
               <a href="/login">Entrar</a>

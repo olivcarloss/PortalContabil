@@ -70,7 +70,7 @@ export default function ClientesTab() {
   }
 
   async function handleDeleteCliente(cliente: Cliente) {
-    if (!confirm(`Inativar o escritório "${cliente.nome}"? Ele deixa de aparecer como ativo, mas os dados são preservados.`)) return;
+    if (!confirm(`Excluir o escritório "${cliente.nome}"? Se ele já tiver CNPJs, licenças ou usuários cadastrados, será apenas inativado; caso contrário, é removido definitivamente.`)) return;
     try {
       await licensingApi.deleteCliente(cliente.id);
       refresh();
@@ -80,7 +80,7 @@ export default function ClientesTab() {
   }
 
   async function handleDeleteCnpj(cnpj: Cnpj) {
-    if (!confirm(`Inativar o cliente "${cnpj.razao_social}"? As conciliações já registradas são preservadas.`)) return;
+    if (!confirm(`Excluir o cliente "${cnpj.razao_social}"? Se ele já tiver conciliações ou licenças registradas, será apenas inativado; caso contrário, é removido definitivamente.`)) return;
     try {
       await licensingApi.deleteCnpj(cnpj.id);
       if (selectedClienteId) openDetail(selectedClienteId);
@@ -215,7 +215,7 @@ export default function ClientesTab() {
                     <button className="icon-btn" title="Editar" onClick={() => setEditingCliente(c)}>
                       ✎
                     </button>
-                    <button className="icon-btn" title="Inativar" onClick={() => handleDeleteCliente(c)}>
+                    <button className="icon-btn" title="Excluir" onClick={() => handleDeleteCliente(c)}>
                       🗑
                     </button>
                   </div>
@@ -282,7 +282,7 @@ export default function ClientesTab() {
                       <button className="icon-btn" title="Editar" onClick={() => setEditingCnpj(c)}>
                         ✎
                       </button>
-                      <button className="icon-btn" title="Inativar" onClick={() => handleDeleteCnpj(c)}>
+                      <button className="icon-btn" title="Excluir" onClick={() => handleDeleteCnpj(c)}>
                         🗑
                       </button>
                     </div>
