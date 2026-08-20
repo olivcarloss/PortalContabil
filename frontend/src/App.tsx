@@ -1,5 +1,5 @@
-import { Route, Routes } from "react-router-dom";
-import { AuthProvider } from "./auth/AuthProvider";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import RequireAuth from "./components/RequireAuth";
 import RequireMenu from "./components/RequireMenu";
 import Shell from "./components/Shell";
@@ -46,10 +46,21 @@ import {
   MENU_RELATORIO_TABELA_PRECOS,
 } from "./auth/menus";
 
+// "/" é a porta de entrada pública: mostra a home de marketing pra quem não
+// está logado, e manda quem já tem sessão direto pra tela certa do portal
+// (mesma lógica de prioridade que já existia em Home.tsx).
+function RootRoute() {
+  const { session, loading } = useAuth();
+  if (loading) return <p style={{ padding: "2rem" }}>Carregando...</p>;
+  if (!session) return <PortalContabilLanding />;
+  return <Navigate to="/home" replace />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/" element={<RootRoute />} />
         <Route path="/login" element={<Login />} />
         <Route path="/aceitar-convite" element={<AceitarConvite />} />
         <Route path="/esqueci-minha-senha" element={<EsqueciSenha />} />
@@ -62,7 +73,7 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route
             path="/visao-geral"
             element={

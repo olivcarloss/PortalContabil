@@ -1,5 +1,33 @@
-import { useState, type ReactNode, type SVGProps } from "react";
+import { useEffect, useState, type ReactNode, type SVGProps } from "react";
 import "./rodrisaas.css";
+
+const CAROUSEL_SLIDES = [
+  {
+    url: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1400&q=80&auto=format&fit=crop",
+    alt: "Conferência de documentos com calculadora e caneta",
+    caption: "Conferência de documentos, sem planilha solta",
+  },
+  {
+    url: "https://images.unsplash.com/photo-1707902665498-a202981fb5ac?w=1400&q=80&auto=format&fit=crop",
+    alt: "Pessoa em uma mesa de escritório com calculadora e caderno",
+    caption: "Rotina de escritório contábil, organizada em um só lugar",
+  },
+  {
+    url: "https://images.unsplash.com/photo-1707157284454-553ef0a4ed0d?w=1400&q=80&auto=format&fit=crop",
+    alt: "Mesa de trabalho com celular e gráficos financeiros",
+    caption: "Relatórios prontos para consultar e exportar",
+  },
+  {
+    url: "https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?w=1400&q=80&auto=format&fit=crop",
+    alt: "Pessoa em traje formal segurando um tablet",
+    caption: "Acesso do escritório, de qualquer lugar",
+  },
+  {
+    url: "https://images.unsplash.com/photo-1709880945165-d2208c6ad2ec?w=1400&q=80&auto=format&fit=crop",
+    alt: "Calculadora sobre a mesa ao lado de um notebook",
+    caption: "Conciliação contábil sintético e analítico",
+  },
+];
 
 const WHATSAPP_NUMBER = "5511988402174";
 const WHATSAPP_MESSAGE = "Olá! Quero conhecer o PortalContabil.cloud.";
@@ -87,6 +115,16 @@ const DeviceIcon = (p: IconProps) => (
 const PlusIcon = (p: IconProps) => (
   <svg {...iconBase} {...p} aria-hidden="true">
     <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+const ChevronLeftIcon = (p: IconProps) => (
+  <svg {...iconBase} {...p} aria-hidden="true">
+    <path d="M15 6l-6 6 6 6" />
+  </svg>
+);
+const ChevronRightIcon = (p: IconProps) => (
+  <svg {...iconBase} {...p} aria-hidden="true">
+    <path d="M9 6l6 6-6 6" />
   </svg>
 );
 const WhatsAppIcon = (p: IconProps) => (
@@ -192,6 +230,65 @@ const FAQS = [
   },
 ];
 
+function ImageCarousel() {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = setInterval(() => setIndex((i) => (i + 1) % CAROUSEL_SLIDES.length), 4500);
+    return () => clearInterval(id);
+  }, [paused]);
+
+  return (
+    <div
+      className="rs-carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div className="rs-carousel-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+        {CAROUSEL_SLIDES.map((slide) => (
+          <figure key={slide.url} className="rs-carousel-slide">
+            <img src={slide.url} alt={slide.alt} loading="lazy" />
+            <figcaption>{slide.caption}</figcaption>
+          </figure>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        className="rs-carousel-arrow rs-carousel-arrow-prev"
+        aria-label="Imagem anterior"
+        onClick={() => setIndex((i) => (i - 1 + CAROUSEL_SLIDES.length) % CAROUSEL_SLIDES.length)}
+      >
+        <ChevronLeftIcon width={20} height={20} />
+      </button>
+      <button
+        type="button"
+        className="rs-carousel-arrow rs-carousel-arrow-next"
+        aria-label="Próxima imagem"
+        onClick={() => setIndex((i) => (i + 1) % CAROUSEL_SLIDES.length)}
+      >
+        <ChevronRightIcon width={20} height={20} />
+      </button>
+
+      <div className="rs-carousel-dots">
+        {CAROUSEL_SLIDES.map((slide, i) => (
+          <button
+            key={slide.url}
+            type="button"
+            className={`rs-carousel-dot${i === index ? " is-active" : ""}`}
+            aria-label={`Ir para a imagem ${i + 1}`}
+            aria-current={i === index}
+            onClick={() => setIndex(i)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function PortalContabilLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
@@ -254,23 +351,42 @@ export default function PortalContabilLanding() {
             </div>
             <div className="rs-hero-mock-screen">
               <div className="rs-hero-mock-side">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="rs-hero-mock-pill" style={{ width: `${70 - i * 6}%` }} />
-                ))}
+                <div className="rs-hero-mock-brand">PortalContabil.cloud</div>
+                {["One Page de Produtos", "Portal de Licenciamento", "Portal Contábil", "Relatórios"].map(
+                  (label, i) => (
+                    <div key={label} className={`rs-hero-mock-navitem${i === 2 ? " is-active" : ""}`}>
+                      {label}
+                    </div>
+                  )
+                )}
               </div>
               <div className="rs-hero-mock-main">
-                <div className="rs-hero-mock-block" style={{ height: 28, width: "40%" }} />
-                <div className="rs-hero-mock-block" style={{ height: 90 }} />
-                <div style={{ display: "flex", gap: 12 }}>
-                  <div className="rs-hero-mock-block" style={{ height: 64, flex: 1 }} />
-                  <div className="rs-hero-mock-block" style={{ height: 64, flex: 1 }} />
-                  <div className="rs-hero-mock-block" style={{ height: 64, flex: 1 }} />
+                <div className="rs-hero-mock-title">Portal Contábil</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {[
+                    { label: "Escritórios", value: "12" },
+                    { label: "Licenças ativas", value: "34" },
+                    { label: "Relatórios exportados", value: "128" },
+                  ].map((stat) => (
+                    <div key={stat.label} className="rs-hero-mock-stat">
+                      <span className="rs-hero-mock-stat-value">{stat.value}</span>
+                      <span className="rs-hero-mock-stat-label">{stat.label}</span>
+                    </div>
+                  ))}
                 </div>
+                <div className="rs-hero-mock-block" />
               </div>
             </div>
           </div>
         </div>
       </header>
+
+      {/* Carousel */}
+      <section className="rs-section" style={{ paddingTop: 0 }}>
+        <div className="rs-container">
+          <ImageCarousel />
+        </div>
+      </section>
 
       {/* Benefits */}
       <section className="rs-section" id="beneficios">
