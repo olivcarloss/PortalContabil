@@ -1,10 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.config import settings
 from app.core.db import get_conn
 from app.core.security import CurrentUser, get_current_user
+from app.modules.licensing.escopo import get_escopo, get_usuario_cliente_id
 from app.modules.licensing.menus import (
     MENU_ADMIN_CONCILIACAO,
     MENU_ADMIN_VISAO_GERAL,
@@ -57,6 +58,21 @@ def _ensure_admin_escritorio(cur) -> str:
     return cliente_id
 
 
+def _clientes_permitidos(conn, usuario_id: str) -> list[str] | None:
+    """None = sem filtro (master, ve tudo). Administrador fica restrito aos
+    escritorios que administra; usuario comum, so ao proprio escritorio.
+    Usado para escopar One Page de Produtos e Conciliacao (admin), que sao
+    telas de menu concedido por perfil — nao exclusivas de master — mas
+    antes agregavam a plataforma inteira sem checar o papel de quem pediu."""
+    papel, escopo = get_escopo(conn, usuario_id)
+    if papel == "master":
+        return None
+    if papel == "administrador":
+        return list(escopo)
+    proprio = get_usuario_cliente_id(conn, usuario_id)
+    return [proprio] if proprio else []
+
+
 @router.get("/me")
 def me(user: CurrentUser = Depends(get_current_user)):
     with get_conn() as conn, conn.cursor() as cur:
@@ -106,30 +122,40 @@ def me(user: CurrentUser = Depends(get_current_user)):
 
 
 @router.get("/overview", response_model=Overview)
-def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
+def overview(user: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
     with get_conn() as conn, conn.cursor() as cur:
         renovar_licencas_vencidas(conn)
+        cids = _clientes_permitidos(conn, user.id)
 
         cur.execute(
             "select count(*) as n, count(*) filter (where ativo) as ativos "
-            "from clientes where not interno;"
+            "from clientes "
+            "where not interno and (%(cids)s::uuid[] is null or id = any(%(cids)s::uuid[]));",
+            {"cids": cids},
         )
         clientes_row = cur.fetchone()
 
         cur.execute(
             "select count(*) as n from cnpjs cn join clientes cl on cl.id = cn.cliente_id "
-            "where not cl.interno;"
+            "where not cl.interno and (%(cids)s::uuid[] is null or cl.id = any(%(cids)s::uuid[]));",
+            {"cids": cids},
         )
         total_cnpjs = cur.fetchone()["n"]
 
         cur.execute(
             "select count(*) as n, "
             "coalesce(sum(valor_total) filter (where periodicidade = 'mensal'), 0) as mrr "
-            "from licencas where status = 'ativa';"
+            "from licencas "
+            "where status = 'ativa' and (%(cids)s::uuid[] is null or cliente_id = any(%(cids)s::uuid[]));",
+            {"cids": cids},
         )
         lic_row = cur.fetchone()
 
-        cur.execute("select count(*) as n from usuarios_portal where ativo;")
+        cur.execute(
+            "select count(*) as n from usuarios_portal "
+            "where ativo and (%(cids)s::uuid[] is null or cliente_id = any(%(cids)s::uuid[]));",
+            {"cids": cids},
+        )
         usuarios_ativos = cur.fetchone()["n"]
 
         cur.execute(
@@ -143,9 +169,11 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
                 coalesce(sum(l.valor_total) filter (where l.status = 'ativa' and l.periodicidade = 'mensal'), 0) as mrr
             from produtos p
             left join licencas l on l.produto_id = p.id
+                and (%(cids)s::uuid[] is null or l.cliente_id = any(%(cids)s::uuid[]))
             group by p.id, p.nome, p.categoria
             order by mrr desc, p.nome;
-            """
+            """,
+            {"cids": cids},
         )
         por_produto = cur.fetchall()
 
@@ -164,9 +192,11 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
             left join licencas l on l.cliente_id = cl.id
             left join produtos p on p.id = l.produto_id
             where not cl.interno
+                and (%(cids)s::uuid[] is null or cl.id = any(%(cids)s::uuid[]))
             group by cl.id, cl.nome, cl.ativo
             order by cl.nome;
-            """
+            """,
+            {"cids": cids},
         )
         por_cliente = cur.fetchall()
 
@@ -186,9 +216,11 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
             left join licencas l on (l.cnpj_id = cn.id) or (l.cnpj_id is null and l.cliente_id = cn.cliente_id)
             left join produtos p on p.id = l.produto_id
             where not cl.interno
+                and (%(cids)s::uuid[] is null or cl.id = any(%(cids)s::uuid[]))
             group by cn.id, cn.cliente_id, cl.nome, cn.cnpj, cn.razao_social, cn.ativo
             order by cl.nome, cn.razao_social;
-            """
+            """,
+            {"cids": cids},
         )
         por_cnpj = cur.fetchall()
 
@@ -202,10 +234,12 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
                 select l.cnpj_id from licencas l
                 join produtos p on p.id = l.produto_id
                 where p.codigo = 'CONCILIACAO_CONTABIL' and l.status = 'ativa'
+                    and (%(cids)s::uuid[] is null or l.cliente_id = any(%(cids)s::uuid[]))
             )
             group by c.status
             order by c.status;
-            """
+            """,
+            {"cids": cids},
         )
         status_conciliacoes = cur.fetchall()
 
@@ -218,11 +252,12 @@ def overview(_: CurrentUser = Depends(require_menu(MENU_ADMIN_VISAO_GERAL))):
                 count(*) filter (where lower(c.status) <> all(%(finalizados)s)) as nao_finalizados
             from produtos p
             join licencas l on l.produto_id = p.id and l.status = 'ativa'
+                and (%(cids)s::uuid[] is null or l.cliente_id = any(%(cids)s::uuid[]))
             join conciliacoes c on c.cnpj_id = l.cnpj_id
             where p.codigo = 'CONCILIACAO_CONTABIL'
             group by p.id, p.nome;
             """,
-            {"finalizados": list(FINALIZADO_STATUSES)},
+            {"finalizados": list(FINALIZADO_STATUSES), "cids": cids},
         )
         status_por_produto = cur.fetchall()
 
@@ -248,7 +283,7 @@ def list_all_conciliacoes(
     ano: int | None = None,
     mes: int | None = None,
     status: str | None = None,
-    _: CurrentUser = Depends(require_menu(MENU_ADMIN_CONCILIACAO)),
+    user: CurrentUser = Depends(require_menu(MENU_ADMIN_CONCILIACAO)),
 ):
     filters = []
     params: dict = {}
@@ -268,9 +303,13 @@ def list_all_conciliacoes(
         filters.append("status = %(status)s")
         params["status"] = status
 
-    where_clause = f"where {' and '.join(filters)}" if filters else ""
-
     with get_conn() as conn, conn.cursor() as cur:
+        cids = _clientes_permitidos(conn, user.id)
+        if cids is not None:
+            filters.append("cliente_id = any(%(cids)s::uuid[])")
+            params["cids"] = cids
+
+        where_clause = f"where {' and '.join(filters)}" if filters else ""
         cur.execute(
             f"select * from vw_conciliacoes_sintetico {where_clause} "
             "order by ano desc, mes desc, cliente_nome;",
@@ -281,9 +320,22 @@ def list_all_conciliacoes(
 
 @router.get("/conciliacoes/{conciliacao_id}/lancamentos", response_model=list[LancamentoAnalitico])
 def list_all_lancamentos(
-    conciliacao_id: UUID, _: CurrentUser = Depends(require_menu(MENU_ADMIN_CONCILIACAO))
+    conciliacao_id: UUID, user: CurrentUser = Depends(require_menu(MENU_ADMIN_CONCILIACAO))
 ):
     with get_conn() as conn, conn.cursor() as cur:
+        cids = _clientes_permitidos(conn, user.id)
+        if cids is not None:
+            cur.execute(
+                """
+                select 1 from conciliacoes c
+                join cnpjs cn on cn.id = c.cnpj_id
+                where c.id = %s and cn.cliente_id = any(%s::uuid[]);
+                """,
+                (conciliacao_id, cids),
+            )
+            if cur.fetchone() is None:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sem acesso a esta conciliacao")
+
         cur.execute(
             """
             select v.* from vw_lancamentos_analitico v
