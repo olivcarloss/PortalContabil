@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
+import { useAlert } from "../../components/ui/AlertProvider";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Licenca, Papel, PerfilAcesso, UsuarioPortal } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
@@ -15,6 +16,7 @@ const PAPEL_LABELS: Record<Papel, string> = {
 export default function UsuariosTab() {
   const { profile } = useAuth();
   const souMaster = profile?.papel === "master";
+  const showAlert = useAlert();
 
   const [usuarios, setUsuarios] = useState<UsuarioPortal[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -45,7 +47,7 @@ export default function UsuariosTab() {
   async function handleDelete(usuario: UsuarioPortal) {
     if (
       !confirm(
-        `Excluir o usuário "${usuario.nome}"? Se ele já tiver licenças concedidas ou escritórios administrados, o acesso será apenas desativado (reversível); caso contrário, o cadastro é removido definitivamente.`
+        `Excluir definitivamente o usuário "${usuario.nome}"? Só é possível se ele nunca teve licenças concedidas nem administrou escritórios — caso contrário, use Editar > Inativo.`
       )
     )
       return;
@@ -53,7 +55,7 @@ export default function UsuariosTab() {
       await licensingApi.deleteUsuario(usuario.id);
       refresh();
     } catch (e) {
-      setError((e as Error).message);
+      showAlert((e as Error).message, "Não foi possível excluir");
     }
   }
 
@@ -63,19 +65,28 @@ export default function UsuariosTab() {
       await licensingApi.updateUsuario(usuario.id, { ativo: true });
       refresh();
     } catch (e) {
-      setError((e as Error).message);
+      showAlert((e as Error).message, "Não foi possível reativar");
+    }
+  }
+
+  async function handleDesativar(usuario: UsuarioPortal) {
+    if (!confirm(`Desativar o acesso de "${usuario.nome}" ao portal? O cadastro e o histórico são mantidos, e o acesso pode ser reativado depois.`)) return;
+    try {
+      await licensingApi.updateUsuario(usuario.id, { ativo: false });
+      refresh();
+    } catch (e) {
+      showAlert((e as Error).message, "Não foi possível desativar");
     }
   }
 
   async function handleSolicitarSenha(usuario: UsuarioPortal) {
     if (!confirm(`Enviar e-mail de redefinição de senha para "${usuario.nome}"?`)) return;
     setSendingSenhaId(usuario.id);
-    setError(null);
     try {
       await licensingApi.solicitarSenhaUsuario(usuario.id);
-      alert("E-mail de redefinição de senha enviado.");
+      showAlert("E-mail de redefinição de senha enviado.", "Sucesso");
     } catch (e) {
-      setError((e as Error).message);
+      showAlert((e as Error).message, "Não foi possível enviar");
     } finally {
       setSendingSenhaId(null);
     }
@@ -187,14 +198,17 @@ export default function UsuariosTab() {
                           ✎
                         </button>
                         {u.ativo ? (
-                          <button className="icon-btn" title="Excluir" onClick={() => handleDelete(u)}>
-                            🗑
+                          <button className="icon-btn" title="Desativar" onClick={() => handleDesativar(u)}>
+                            🚫
                           </button>
                         ) : (
                           <button className="icon-btn" title="Reativar" onClick={() => handleReativar(u)}>
                             ♻️
                           </button>
                         )}
+                        <button className="icon-btn" title="Excluir cadastro" onClick={() => handleDelete(u)}>
+                          🗑
+                        </button>
                       </div>
                     </td>
                   </tr>

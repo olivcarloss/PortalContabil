@@ -507,11 +507,12 @@ def update_cliente(
 def delete_cliente(
     cliente_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
 ):
-    """Exclui o escritorio definitivamente se ele nunca chegou a ter CNPJ,
-    licenca ou usuario cadastrado — nesse caso nao ha nada a preservar.
-    Havendo qualquer um desses, inativa (soft delete) em vez de excluir: a
-    exclusao fisica faria cascade em cnpjs/licencas/usuarios e apagaria
-    conciliacoes e lancamentos contabeis reais desses CNPJs."""
+    """Exclui o escritorio definitivamente. So e permitido se ele nunca
+    chegou a ter CNPJ, licenca ou usuario cadastrado — nesse caso nao ha
+    nada a preservar. Havendo qualquer um desses, a exclusao e bloqueada
+    (409): excluir faria cascade em cnpjs/licencas/usuarios e apagaria
+    conciliacoes e lancamentos contabeis reais desses CNPJs. Pra tirar o
+    escritorio de circulacao sem perder esse historico, use Inativar."""
     with get_conn() as conn:
         papel, _ = get_escopo(conn, user.id)
         require_papel_master(papel)
@@ -523,17 +524,17 @@ def delete_cliente(
         cur.execute("select count(*) as n from usuarios_portal where cliente_id = %s;", (cliente_id,))
         tem_usuarios = cur.fetchone()["n"] > 0
 
-        if not tem_cnpjs and not tem_licencas and not tem_usuarios:
-            cur.execute("delete from clientes where id = %s returning *;", (cliente_id,))
-            row = cur.fetchone()
-            if row is None:
-                raise HTTPException(status_code=404, detail="Escritorio nao encontrado")
-            conn.commit()
-            return row
+        if tem_cnpjs or tem_licencas or tem_usuarios:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Nao e possivel excluir: este escritorio tem CNPJs, licencas ou "
+                    "usuarios cadastrados. Use Inativar para tira-lo de circulacao "
+                    "sem perder o historico."
+                ),
+            )
 
-        cur.execute(
-            "update clientes set ativo = false where id = %s returning *;", (cliente_id,)
-        )
+        cur.execute("delete from clientes where id = %s returning *;", (cliente_id,))
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Escritorio nao encontrado")
@@ -709,10 +710,12 @@ def update_cnpj(
 def delete_cnpj(
     cnpj_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_ESCRITORIOS))
 ):
-    """Exclui o cliente/CNPJ definitivamente se ele nunca teve conciliacao
-    ou licenca propria — nesse caso nao ha nada a preservar. Havendo
-    qualquer uma delas, inativa (soft delete): a exclusao fisica faria
-    cascade em conciliacoes e lancamentos contabeis reais desse CNPJ."""
+    """Exclui o cliente/CNPJ definitivamente. So e permitido se ele nunca
+    teve conciliacao ou licenca propria — nesse caso nao ha nada a
+    preservar. Havendo qualquer uma delas, a exclusao e bloqueada (409): a
+    exclusao fisica faria cascade em conciliacoes e lancamentos contabeis
+    reais desse CNPJ. Pra tirar o CNPJ de circulacao sem perder esse
+    historico, use Inativar."""
     with get_conn() as conn, conn.cursor() as cur:
         papel, escopo = get_escopo(conn, user.id)
         require_escopo_cliente(_cnpj_cliente_id(cur, cnpj_id), papel, escopo)
@@ -722,17 +725,17 @@ def delete_cnpj(
         cur.execute("select count(*) as n from licencas where cnpj_id = %s;", (cnpj_id,))
         tem_licencas = cur.fetchone()["n"] > 0
 
-        if not tem_conciliacoes and not tem_licencas:
-            cur.execute("delete from cnpjs where id = %s returning *;", (cnpj_id,))
-            row = cur.fetchone()
-            if row is None:
-                raise HTTPException(status_code=404, detail="Cliente (CNPJ) nao encontrado")
-            conn.commit()
-            return row
+        if tem_conciliacoes or tem_licencas:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Nao e possivel excluir: este cliente (CNPJ) tem conciliacoes ou "
+                    "licencas registradas. Use Inativar para tira-lo de circulacao "
+                    "sem perder o historico."
+                ),
+            )
 
-        cur.execute(
-            "update cnpjs set ativo = false where id = %s returning *;", (cnpj_id,)
-        )
+        cur.execute("delete from cnpjs where id = %s returning *;", (cnpj_id,))
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Cliente (CNPJ) nao encontrado")
@@ -1485,13 +1488,15 @@ def solicitar_senha_usuario(
 def delete_usuario(
     usuario_id: UUID, user: CurrentUser = Depends(require_menu(MENU_LICENCIAMENTO_USUARIOS))
 ):
-    """Exclui o cadastro definitivamente quando nao ha nenhum historico
-    vinculado (nunca teve licenca concedida nem administrou escritorio) —
-    inclusive apagando a conta de autenticacao, para o e-mail ficar livre
-    pra um novo convite. Havendo historico, cai no comportamento antigo:
-    so inativa (reversivel via PATCH ativo=true)."""
+    """Exclui o cadastro definitivamente. So e permitido quando nao ha
+    nenhum historico vinculado (nunca teve licenca concedida nem
+    administrou escritorio) — nesse caso tambem apaga a conta de
+    autenticacao, pra o e-mail ficar livre pra um novo convite. Havendo
+    historico, a exclusao e bloqueada (409): perder esse vinculo apagaria
+    rastro de quem teve acesso a que. Pra tirar o acesso sem apagar o
+    historico, use Editar > Inativar."""
     if str(usuario_id) == user.id:
-        raise HTTPException(status_code=422, detail="Voce nao pode excluir/desativar seu proprio usuario")
+        raise HTTPException(status_code=422, detail="Voce nao pode excluir seu proprio usuario")
 
     with get_conn() as conn, conn.cursor() as cur:
         papel_ator, escopo_ator = get_escopo(conn, user.id)
@@ -1506,27 +1511,26 @@ def delete_usuario(
         cur.execute("select count(*) as n from administrador_clientes where usuario_id = %s;", (usuario_id,))
         tem_administracao = cur.fetchone()["n"] > 0
 
-        if not tem_licencas and not tem_administracao:
-            cur.execute("delete from usuarios_portal where id = %s returning id;", (usuario_id,))
-            row = cur.fetchone()
-            if row is None:
-                raise HTTPException(status_code=404, detail="Usuario nao encontrado")
-            conn.commit()
-            try:
-                supabase_admin.delete_user(str(usuario_id))
-            except supabase_admin.SupabaseAdminError:
-                pass  # perfil ja removido; conta de auth orfa nao bloqueia nada alem de nao poder ser reconvidada
-            return {"deleted": True, "inativado": False}
+        if tem_licencas or tem_administracao:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Nao e possivel excluir: este usuario tem licencas concedidas ou "
+                    "escritorios sob administracao. Use Editar > Inativar para revogar "
+                    "o acesso sem perder o historico."
+                ),
+            )
 
-        cur.execute(
-            "update usuarios_portal set ativo = false where id = %s returning id;",
-            (usuario_id,),
-        )
+        cur.execute("delete from usuarios_portal where id = %s returning id;", (usuario_id,))
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Usuario nao encontrado")
         conn.commit()
-        return {"deleted": False, "inativado": True}
+        try:
+            supabase_admin.delete_user(str(usuario_id))
+        except supabase_admin.SupabaseAdminError:
+            pass  # perfil ja removido; conta de auth orfa nao bloqueia nada alem de nao poder ser reconvidada
+        return {"deleted": True, "inativado": False}
 
 
 @router.post(

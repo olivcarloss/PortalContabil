@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Modal, { Field, FieldRow } from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
+import { useAlert } from "../../components/ui/AlertProvider";
 import { licensingApi } from "../../api/licensing";
 import type { Cliente, Cnpj, Licenca, Produto } from "../../api/types";
 import { formatCnpj, formatTelefone, normalizeTelefoneDigits, onlyDigits } from "../../utils/masks";
@@ -13,6 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function ClientesTab() {
+  const showAlert = useAlert();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [cnpjCountByCliente, setCnpjCountByCliente] = useState<Record<string, number>>({});
@@ -70,23 +72,46 @@ export default function ClientesTab() {
   }
 
   async function handleDeleteCliente(cliente: Cliente) {
-    if (!confirm(`Excluir o escritório "${cliente.nome}"? Se ele já tiver CNPJs, licenças ou usuários cadastrados, será apenas inativado; caso contrário, é removido definitivamente.`)) return;
+    if (!confirm(`Excluir definitivamente o escritório "${cliente.nome}"? Só é possível se ele nunca teve CNPJs, licenças ou usuários — caso contrário, use Editar > Inativar.`)) return;
     try {
       await licensingApi.deleteCliente(cliente.id);
       refresh();
     } catch (e) {
-      setError((e as Error).message);
+      showAlert((e as Error).message, "Não foi possível excluir");
     }
   }
 
   async function handleDeleteCnpj(cnpj: Cnpj) {
-    if (!confirm(`Excluir o cliente "${cnpj.razao_social}"? Se ele já tiver conciliações ou licenças registradas, será apenas inativado; caso contrário, é removido definitivamente.`)) return;
+    if (!confirm(`Excluir definitivamente o cliente "${cnpj.razao_social}"? Só é possível se ele nunca teve conciliações ou licenças — caso contrário, use Editar > Inativar.`)) return;
     try {
       await licensingApi.deleteCnpj(cnpj.id);
       if (selectedClienteId) openDetail(selectedClienteId);
       refresh();
     } catch (e) {
-      setError((e as Error).message);
+      showAlert((e as Error).message, "Não foi possível excluir");
+    }
+  }
+
+  async function handleToggleAtivoCliente(cliente: Cliente) {
+    const acao = cliente.ativo ? "Inativar" : "Reativar";
+    if (!confirm(`${acao} o escritório "${cliente.nome}"?`)) return;
+    try {
+      await licensingApi.updateCliente(cliente.id, { ativo: !cliente.ativo });
+      refresh();
+    } catch (e) {
+      showAlert((e as Error).message, `Não foi possível ${acao.toLowerCase()}`);
+    }
+  }
+
+  async function handleToggleAtivoCnpj(cnpj: Cnpj) {
+    const acao = cnpj.ativo ? "Inativar" : "Reativar";
+    if (!confirm(`${acao} o cliente "${cnpj.razao_social}"?`)) return;
+    try {
+      await licensingApi.updateCnpj(cnpj.id, { ativo: !cnpj.ativo });
+      if (selectedClienteId) openDetail(selectedClienteId);
+      refresh();
+    } catch (e) {
+      showAlert((e as Error).message, `Não foi possível ${acao.toLowerCase()}`);
     }
   }
 
@@ -215,7 +240,14 @@ export default function ClientesTab() {
                     <button className="icon-btn" title="Editar" onClick={() => setEditingCliente(c)}>
                       ✎
                     </button>
-                    <button className="icon-btn" title="Excluir" onClick={() => handleDeleteCliente(c)}>
+                    <button
+                      className="icon-btn"
+                      title={c.ativo ? "Inativar" : "Reativar"}
+                      onClick={() => handleToggleAtivoCliente(c)}
+                    >
+                      {c.ativo ? "🚫" : "♻️"}
+                    </button>
+                    <button className="icon-btn" title="Excluir cadastro" onClick={() => handleDeleteCliente(c)}>
                       🗑
                     </button>
                   </div>
@@ -282,7 +314,14 @@ export default function ClientesTab() {
                       <button className="icon-btn" title="Editar" onClick={() => setEditingCnpj(c)}>
                         ✎
                       </button>
-                      <button className="icon-btn" title="Excluir" onClick={() => handleDeleteCnpj(c)}>
+                      <button
+                        className="icon-btn"
+                        title={c.ativo ? "Inativar" : "Reativar"}
+                        onClick={() => handleToggleAtivoCnpj(c)}
+                      >
+                        {c.ativo ? "🚫" : "♻️"}
+                      </button>
+                      <button className="icon-btn" title="Excluir cadastro" onClick={() => handleDeleteCnpj(c)}>
                         🗑
                       </button>
                     </div>

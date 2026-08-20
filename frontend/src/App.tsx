@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import RequireAuth from "./components/RequireAuth";
 import RequireMenu from "./components/RequireMenu";
 import Shell from "./components/Shell";
+import { AlertProvider } from "./components/ui/AlertProvider";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import AceitarConvite from "./pages/AceitarConvite";
@@ -59,6 +60,7 @@ function RootRoute() {
 export default function App() {
   return (
     <AuthProvider>
+      <AlertProvider>
       <Routes>
         <Route path="/" element={<RootRoute />} />
         <Route path="/login" element={<Login />} />
@@ -212,6 +214,7 @@ export default function App() {
           />
         </Route>
       </Routes>
+      </AlertProvider>
     </AuthProvider>
   );
 }
